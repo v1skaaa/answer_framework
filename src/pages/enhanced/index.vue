@@ -22,7 +22,10 @@
             <view class="tag" :class="'tag-' + item.level">{{ item.levelText }}</view>
             <view class="tag tag-category">{{ item.category }}</view>
           </view>
-          <view class="question-desc">{{ item.description }}</view>
+          <view class="question-desc">
+            <LaTeX v-if="item.hasLatex" :formula="item.description" :displayMode="false"/>
+            <text v-else>{{ item.description }}</text>
+          </view>
         </view>
         <view class="question-status" :class="{ 'status-done': item.isDone }">
           <uni-icons v-if="item.isDone" type="checkbox-filled" size="22" color="#4caf50"></uni-icons>
@@ -40,6 +43,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import LaTeX from '@/components/LaTeX.vue';
 
 const keyword = ref('');
 const currentTag = ref('all');
@@ -54,7 +58,8 @@ const mockQuestions = [
     levelText: '中等',
     category: '三角恒等变换',
     categoryValue: 'algorithm',
-    description: '通过对三角函数间的恒等式进行变形和化简',
+    description: '\\sin(\\alpha \\pm \\beta) = \\sin\\alpha\\cos\\beta \\pm \\cos\\alpha\\sin\\beta',
+    hasLatex: true,
     isDone: false
   },
   {
@@ -64,7 +69,8 @@ const mockQuestions = [
     levelText: '困难',
     category: '数据结构',
     categoryValue: 'data-structure',
-    description: '从和角公式出发，推导出积化和差公式',
+    description: 'z = \\sqrt 2 (\\cos 45^\\circ  + {\\rm{i}}\\cos 225^\\circ )',
+    hasLatex: true,
     isDone: true
   },
   {
@@ -74,7 +80,8 @@ const mockQuestions = [
     levelText: '中等',
     category: '设计模式',
     categoryValue: 'pattern',
-    description: '将表达式3sinx + 4cosx化为Rsin(x+φ)形式，并求其最大值',
+    description: 'a\\sin\\theta + b\\cos\\theta = \\sqrt{a^2+b^2}\\sin(\\theta+\\arctan\\frac{b}{a})',
+    hasLatex: true,
     isDone: false
   },
   {
@@ -84,7 +91,8 @@ const mockQuestions = [
     levelText: '中等',
     category: '算法',
     categoryValue: 'algorithm',
-    description: '已知cosθ=3/5，θ∈(270°,360°)，求sin(θ/2)和cos(θ/2)的值',
+    description: '\\sin^2\\frac{\\theta}{2} = \\frac{1-\\cos\\theta}{2}, \\cos^2\\frac{\\theta}{2} = \\frac{1+\\cos\\theta}{2}',
+    hasLatex: true,
     isDone: false
   },
   {
@@ -94,8 +102,31 @@ const mockQuestions = [
     levelText: '困难',
     category: '设计模式',
     categoryValue: 'pattern',
-    description: '证明万能公式：sinα = 2tan(α/2)/(1+tan²(α/2))',
+    description: '\\sin\\alpha = \\frac{2\\tan\\frac{\\alpha}{2}}{1+\\tan^2\\frac{\\alpha}{2}}',
+    hasLatex: true,
     isDone: true
+  },
+  {
+    id: 106,
+    title: '复杂积分计算',
+    level: 'hard',
+    levelText: '困难',
+    category: '高等数学',
+    categoryValue: 'algorithm',
+    description: '\\int_{0}^{\\pi} \\frac{1}{a + b\\cos x} dx = \\frac{\\pi}{\\sqrt{a^2 - b^2}}, (a > |b| > 0) ',
+    hasLatex: true,
+    isDone: false
+  },
+  {
+    id: 107,
+    title: '复杂积分计算',
+    level: 'hard',
+    levelText: '困难',
+    category: '高等数学',
+    categoryValue: 'algorithm',
+    description: 'M = \\left\\{ {\\left. {\\left( {x,y} \\right)} \\right|y = {x^2} + 3x} \\right\\}，N = \\left\\{ {\\left. x \\right|y = {x^2} + 3x} \\right\\}',
+    hasLatex: true,
+    isDone: false
   }
 ];
 
@@ -254,13 +285,14 @@ onMounted(() => {
       }
       
       .question-desc {
-        font-size: 24rpx;
-        color: #999;
-        line-height: 1.5;
+        font-size: 26rpx;
+        color: #666;
+        line-height: 1.4;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 2;
         overflow: hidden;
+        padding: 8rpx 0;
       }
     }
     
