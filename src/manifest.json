@@ -54,7 +54,11 @@
         "setting" : {
             "urlCheck" : false
         },
-        "usingComponents" : true
+        "usingComponents" : true,
+        "web-view": {
+            "domains": ["*"],
+            "data-url": true
+        }
     },
     "mp-alipay" : {
         "usingComponents" : true

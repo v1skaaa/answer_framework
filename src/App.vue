@@ -14,5 +14,4 @@ export default {
 
 <style>
 /*每个页面公共css */
-@import 'katex/dist/katex.min.css';
 </style>

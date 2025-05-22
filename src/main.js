@@ -6,8 +6,8 @@ import App from "./App.vue";
 // 引入uni-ui组件
 import uniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 
-// 导入KaTeX样式
-import 'katex/dist/katex.min.css';
+// 全局引入MathJax
+// 这里不需要直接导入css，MathJax使用SVG渲染
 
 export function createApp() {
 	const app = createSSRApp(App);

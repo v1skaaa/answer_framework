@@ -23,7 +23,12 @@
             <view class="tag tag-category">{{ item.category }}</view>
           </view>
           <view class="question-desc">
-            <LaTeX v-if="item.hasLatex" :formula="item.description" :displayMode="false"/>
+            <MathJax 
+              v-if="item.hasLatex" 
+              :formula="item.description" 
+              :displayMode="false" 
+              :scale="0.75"
+            />
             <text v-else>{{ item.description }}</text>
           </view>
         </view>
@@ -43,7 +48,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import LaTeX from '@/components/LaTeX.vue';
+import MathJax from '@/components/MathJax.vue';
 
 const keyword = ref('');
 const currentTag = ref('all');
@@ -53,80 +58,113 @@ const questionList = ref([]);
 const mockQuestions = [
   {
     id: 101,
-    title: '和与差的三角函数公式',
+    title: '复数的三角形式',
     level: 'medium',
     levelText: '中等',
-    category: '三角恒等变换',
+    category: '复变函数',
     categoryValue: 'algorithm',
-    description: '\\sin(\\alpha \\pm \\beta) = \\sin\\alpha\\cos\\beta \\pm \\cos\\alpha\\sin\\beta',
+    description: 'z = r(\\cos\\theta + i\\sin\\theta) = re^{i\\theta}',
     hasLatex: true,
     isDone: false
   },
   {
     id: 102,
-    title: '积化和差公式推导',
+    title: '欧拉公式推导',
     level: 'hard',
     levelText: '困难',
-    category: '数据结构',
+    category: '复变函数',
     categoryValue: 'data-structure',
-    description: 'z = \\sqrt 2 (\\cos 45^\\circ  + {\\rm{i}}\\cos 225^\\circ )',
+    description: 'e^{ix} = \\cos x + i\\sin x',
     hasLatex: true,
     isDone: true
   },
   {
     id: 103,
-    title: '辅助角公式求解',
-    level: 'medium',
-    levelText: '中等',
-    category: '设计模式',
+    title: '傅里叶变换公式',
+    level: 'hard',
+    levelText: '困难',
+    category: '信号分析',
     categoryValue: 'pattern',
-    description: 'a\\sin\\theta + b\\cos\\theta = \\sqrt{a^2+b^2}\\sin(\\theta+\\arctan\\frac{b}{a})',
+    description: 'F(\\omega) = \\int_{-\\infty}^{\\infty} f(t) e^{-i\\omega t} dt',
     hasLatex: true,
     isDone: false
   },
   {
     id: 104,
-    title: '半角公式应用',
-    level: 'medium',
-    levelText: '中等',
-    category: '算法',
+    title: '拉普拉斯变换',
+    level: 'hard',
+    levelText: '困难',
+    category: '微分方程',
     categoryValue: 'algorithm',
-    description: '\\sin^2\\frac{\\theta}{2} = \\frac{1-\\cos\\theta}{2}, \\cos^2\\frac{\\theta}{2} = \\frac{1+\\cos\\theta}{2}',
+    description: 'F(s) = \\int_{0}^{\\infty} f(t) e^{-st} dt',
     hasLatex: true,
     isDone: false
   },
   {
     id: 105,
-    title: '万能公式证明',
+    title: '麦克斯韦方程组',
     level: 'hard',
     levelText: '困难',
-    category: '设计模式',
+    category: '电磁学',
     categoryValue: 'pattern',
-    description: '\\sin\\alpha = \\frac{2\\tan\\frac{\\alpha}{2}}{1+\\tan^2\\frac{\\alpha}{2}}',
+    description: '\\nabla\\times E=-\\frac{\\partial B}{\\partial t}',
     hasLatex: true,
     isDone: true
   },
   {
     id: 106,
-    title: '复杂积分计算',
+    title: '薛定谔方程',
     level: 'hard',
     levelText: '困难',
-    category: '高等数学',
+    category: '量子力学',
     categoryValue: 'algorithm',
-    description: '\\int_{0}^{\\pi} \\frac{1}{a + b\\cos x} dx = \\frac{\\pi}{\\sqrt{a^2 - b^2}}, (a > |b| > 0) ',
+    description: 'i\\hbar\\frac{\\partial}{\\partial t}\\Psi(\\mathbf{r},t) = \\hat H\\Psi(\\mathbf{r},t)',
     hasLatex: true,
     isDone: false
   },
   {
     id: 107,
-    title: '复杂积分计算',
+    title: '爱因斯坦场方程',
     level: 'hard',
     levelText: '困难',
-    category: '高等数学',
+    category: '广义相对论',
     categoryValue: 'algorithm',
-    description: 'M = \\left\\{ {\\left. {\\left( {x,y} \\right)} \\right|y = {x^2} + 3x} \\right\\}，N = \\left\\{ {\\left. x \\right|y = {x^2} + 3x} \\right\\}',
+    description: 'R_{\\mu\\nu}-\\frac{1}{2}Rg_{\\mu\\nu}=\\frac{8\\pi G}{c^4}T_{\\mu\\nu}',
     hasLatex: true,
     isDone: false
+  },
+  {
+    id: 108,
+    title: '统计力学中的配分函数',
+    level: 'medium',
+    levelText: '中等',
+    category: '统计物理',
+    categoryValue: 'data-structure',
+    description: 'Z = \\sum_i e^{-\\beta E_i}',
+    hasLatex: true,
+    isDone: true
+  },
+  {
+    id: 109,
+    title: '随机测试',
+    level: 'medium',
+    levelText: '中等',
+    category: '随机',
+    categoryValue: 'data-structure',
+    description: '\\iiint\\limits_{\\Omega} \\left( \\frac{\\partial^2 f}{\\partial x^2} + \\frac{\\partial^2 f}{\\partial y^2} + \\frac{\\partial^2 f}{\\partial z^2} \\right) dV = \\oint_{\\partial \\Omega} \\frac{\\nabla f \\cdot \\mathbf{n}}{\\sqrt{1 + \\left( \\frac{\\partial f}{\\partial x} \\right)^2 + \\left( \\frac{\\partial f}{\\partial y} \\right)^2}} \\, dS',
+    hasLatex: true,
+    isDone: true
+  },
+  {
+    id: 109,
+    title: '随机测试02',
+    level: 'medium',
+    levelText: '中等',
+    category: '随机',
+    categoryValue: 'data-structure',
+    description: 'I_{2 k+1}=\\frac{(2 k)!!}{(2 k+1)!!}',
+    hasLatex: true,
+    isDone: true
   }
 ];
 
@@ -287,12 +325,12 @@ onMounted(() => {
       .question-desc {
         font-size: 26rpx;
         color: #666;
-        line-height: 1.4;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2;
-        overflow: hidden;
+        line-height: 1.5;
+        display: flex;
+        align-items: center;
+        min-height: 50rpx;
         padding: 8rpx 0;
+        overflow: hidden;
       }
     }
     
