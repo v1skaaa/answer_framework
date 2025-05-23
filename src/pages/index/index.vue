@@ -1,83 +1,52 @@
 <template>
   <view class="container">
-    <!-- 头部数据统计 -->
-    <view class="stats-section">
-      <view class="stats-card">
-        <view class="stats-item">
-          <text class="stats-label">坚持天数</text>
-          <text class="stats-value">7</text>
+    <view class="top-section">
+      <view class="top-card">
+        <view class="top-item">
+          <text class="top-label">坚持天数</text>
+          <text class="top-desc">您已打卡</text>
+          <text class="top-value">60天</text>
         </view>
-        <view class="divider"></view>
-        <view class="stats-item">
-          <text class="stats-label">刷题数</text>
-          <text class="stats-value">42</text>
+        <view class="top-item">
+          <text class="top-label">考试倒计时</text>
+          <text class="top-desc">距离高考还有</text>
+          <text class="top-value">24天</text>
+        </view>
+      </view>
+      <view class="middle-card">
+        <view class="middle-item exercise" @click="goToExercise">
+          <text class="middle-title">刷题练习</text>
+          <text class="middle-desc">去巩固一下你学的东西吧</text>
+        </view>
+        <view class="middle-item test" @click="goToTest">
+          <text class="middle-title">在线考试</text>
+          <text class="middle-desc">考考你学得怎么样</text>
         </view>
       </view>
     </view>
-    
-    <!-- 题目类型卡片 -->
-    <view class="card-section">
-      <view class="card-grid">
-        <view class="card-item" @click="navigateTo('/pages/basic/index')">
-          <view class="card-content">
-            <text class="card-title">基础题</text>
-          </view>
+    <view class="section-title"><view class="bar"></view>每日推荐</view>
+    <view class="recommend-list">
+      <view class="recommend-item" v-for="(item, index) in recommendList" :key="index" @click="goToQuestion(item)">
+        <view class="recommend-content">
+          <text class="recommend-title">{{item.title}}</text>
+          <text class="recommend-desc">{{item.desc}}</text>
         </view>
-        
-        <view class="card-item" @click="navigateTo('/pages/enhanced/index')">
-          <view class="card-content">
-            <text class="card-title">强化题</text>
-          </view>
-        </view>
-        
-        <view class="card-item" @click="navigateTo('/pages/mock/index')">
-          <view class="card-content">
-            <text class="card-title">模拟题库</text>
-          </view>
-        </view>
-        
-        <view class="card-item" @click="navigateTo('')">
-          <view class="card-content">
-            <text class="card-title">...</text>
-          </view>
+        <view class="recommend-right">
+          <text class="recommend-difficulty" :class="'difficulty-' + item.level">{{item.levelText}}</text>
+          <uni-icons type="right" size="16" color="#999"></uni-icons>
         </view>
       </view>
     </view>
-    
-    <!-- 每日推荐 -->
-    <view class="recommend-section">
-      <view class="section-title">
-        <text>每日推荐</text>
-      </view>
-      <view class="recommend-list">
-        <view class="recommend-item" v-for="(item, index) in recommendList" :key="index" @click="goToQuestion(item)">
-          <view class="recommend-content">
-            <text class="recommend-title">{{item.title}}</text>
-            <text class="recommend-desc">{{item.desc}}</text>
-          </view>
-          <view class="recommend-right">
-            <text class="recommend-difficulty" :class="'difficulty-' + item.level">{{item.levelText}}</text>
-            <uni-icons type="right" size="16" color="#999"></uni-icons>
-          </view>
-        </view>
-      </view>
-    </view>
-    
-    <!-- 最近做题 -->
-    <view class="recent-section">
-      <view class="section-title">
-        <text>最近做题</text>
-      </view>
-      <view class="recent-list">
-        <view class="recent-item" v-for="(item, index) in recentList" :key="index" @click="goToQuestion(item)">
-          <view class="recent-content">
-            <text class="recent-title">{{item.title}}</text>
-            <view class="recent-info">
-              <text class="recent-time">{{item.time}}</text>
-              <text class="recent-status" :class="{ 'status-right': item.status === 'right', 'status-wrong': item.status === 'wrong' }">
-                {{item.status === 'right' ? '回答正确' : '回答错误'}}
-              </text>
-            </view>
+    <view class="section-title"><view class="bar"></view>最近做题</view>
+    <view class="recent-list">
+      <view class="recent-item" v-for="(item, index) in recentList" :key="index" @click="goToQuestion(item)">
+        <view class="recent-content">
+          <text class="recent-title">{{item.title}}</text>
+          <view class="recent-info">
+            <text class="recent-time">{{item.time}}</text>
+            <text class="recent-status" :class="{ 'status-right': item.status === 'right', 'status-wrong': item.status === 'wrong' }">
+              {{item.status === 'right' ? '回答正确' : '回答错误'}}
+            </text>
           </view>
         </view>
       </view>
@@ -149,6 +118,13 @@ const goToQuestion = (item) => {
   });
 };
 
+const goToExercise = () => {
+  uni.switchTab({ url: '/pages/exercise/index' })
+}
+const goToTest = () => {
+  uni.switchTab({ url: '/pages/test/index' })
+}
+
 onMounted(() => {
   // 检查是否登录
   const token = uni.getStorageSync('token');
@@ -167,220 +143,200 @@ onMounted(() => {
 
 <style lang="scss">
 .container {
-  padding: 20rpx;
-  background-color: #f8f8f8;
+  padding: 24rpx 20rpx 120rpx 20rpx;
+  background: linear-gradient(135deg, #f8f8ff 0%, #e0e7ff 100%);
   min-height: 100vh;
 }
-
-// 统计区域样式
-.stats-section {
-  margin-bottom: 30rpx;
-  
-  .stats-card {
-    background-color: #fff;
-    border-radius: 20rpx;
-    display: flex;
-    padding: 30rpx 0;
-    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
-    
-    .stats-item {
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      
-      .stats-label {
-        font-size: 28rpx;
-        color: #666;
-        margin-bottom: 15rpx;
-      }
-      
-      .stats-value {
-        font-size: 40rpx;
-        font-weight: bold;
-        color: #333;
-      }
-    }
-    
-    .divider {
-      width: 2rpx;
-      background-color: #eee;
-      height: 60rpx;
-      align-self: center;
-    }
-  }
+.header-title {
+  text-align: center;
+  font-size: 36rpx;
+  font-weight: bold;
+  margin: 20rpx 0 30rpx 0;
 }
-
-// 卡片网格样式
-.card-section {
+.top-section {
   margin-bottom: 30rpx;
-  
-  .card-grid {
-    display: flex;
-    flex-wrap: wrap;
-    margin: 0 -10rpx;
-    
-    .card-item {
-      width: calc(50% - 20rpx);
-      margin: 10rpx;
-      height: 180rpx;
-      background: linear-gradient(135deg, #a6c0fe, #c2a8fd);
-      border-radius: 20rpx;
-      overflow: hidden;
-      box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
-      
-      &:nth-child(2n) {
-        background: linear-gradient(135deg, #70c1ff, #5a9cff);
-      }
-      
-      &:nth-child(3) {
-        background: linear-gradient(135deg, #ffaa7f, #ff7eb3);
-      }
-      
-      &:nth-child(4) {
-        background: linear-gradient(135deg, #7ed4fd, #57a8ff);
-      }
-      
-      .card-content {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        height: 100%;
-        padding: 20rpx;
-        
-        .card-title {
-          font-size: 34rpx;
-          font-weight: bold;
-          color: #fff;
-          text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.1);
-        }
-      }
-    }
-  }
 }
-
-// 推荐区域样式
-.recommend-section, .recent-section {
+.top-card {
+  display: flex;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #a6c0fe 0%, #c2a8fd 100%);
+  border-radius: 24rpx;
+  padding: 30rpx 0;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(166,192,254,0.10);
+}
+.top-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-right: 2rpx solid #eee;
+  &:last-child { border-right: none; }
+}
+.top-label {
+  font-size: 28rpx;
+  color: #fff;
+  font-weight: bold;
+  margin-bottom: 8rpx;
+}
+.top-desc {
+  font-size: 22rpx;
+  color: #f3f3f3;
+  margin-bottom: 8rpx;
+}
+.top-value {
+  font-size: 40rpx;
+  color: #fff;
+  font-weight: bold;
+  text-shadow: 0 2rpx 8rpx #a6c0fe44;
+}
+.middle-card {
+  display: flex;
+  justify-content: space-between;
+  border-radius: 24rpx;
+  overflow: hidden;
+  box-shadow: 0 2rpx 8rpx rgba(90,156,255,0.10);
+}
+.middle-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  padding: 30rpx 0;
+  color: #fff;
+  font-weight: bold;
+  font-size: 28rpx;
+}
+.middle-item.exercise {
+  background: linear-gradient(135deg, #70c1ff 0%, #a6d4f8 100%); /* Adjusted blue gradient */
+}
+.middle-item.test {
+  background: linear-gradient(135deg, #ffaa7f 0%, #ff9ac2 100%); /* Adjusted pink/orange gradient */
+}
+.middle-title {
+  font-size: 28rpx;
+  color: #fff;
+  font-weight: bold;
+  margin-bottom: 8rpx;
+}
+.middle-desc {
+  font-size: 22rpx;
+  color: #f3f3f3;
+}
+.section-title {
+  font-size: 28rpx;
+  color: #333;
+  font-weight: bold;
+  margin: 30rpx 0 10rpx 0;
+  display: flex;
+  align-items: center;
+}
+.section-title .bar {
+  width: 12rpx;
+  height: 32rpx;
+  background: linear-gradient(135deg, #a6c0fe 0%, #5a9cff 100%);
+  border-radius: 8rpx;
+  margin-right: 16rpx;
+}
+.recommend-list {
   background-color: #fff;
   border-radius: 20rpx;
-  padding: 20rpx;
+  padding: 0 20rpx;
   margin-bottom: 30rpx;
-  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.05);
-  
-  .section-title {
-    font-size: 32rpx;
-    font-weight: bold;
-    color: #333;
-    margin-bottom: 20rpx;
-    padding-left: 20rpx;
-    border-left: 8rpx solid #a6c0fe;
-  }
-}
-
-.recommend-list {
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
   .recommend-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
     padding: 20rpx 0;
-    border-bottom: 1px solid #f5f5f5;
-    
-    &:last-child {
-      border-bottom: none;
-    }
-    
+    border-bottom: 1rpx solid #eee;
+    &:last-child { border-bottom: none; }
     .recommend-content {
       flex: 1;
       padding-right: 20rpx;
-      
       .recommend-title {
         font-size: 28rpx;
         color: #333;
-        margin-bottom: 10rpx;
-        font-weight: 500;
+        font-weight: bold;
+        margin-bottom: 8rpx;
       }
-      
       .recommend-desc {
         font-size: 24rpx;
-        color: #999;
+        color: #888;
         display: -webkit-box;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 1;
         overflow: hidden;
       }
     }
-    
     .recommend-right {
       display: flex;
       align-items: center;
-      
       .recommend-difficulty {
-        font-size: 24rpx;
-        padding: 4rpx 10rpx;
-        border-radius: 10rpx;
+        font-size: 22rpx;
+        padding: 4rpx 12rpx;
+        border-radius: 12rpx;
         margin-right: 10rpx;
-        
-        &.difficulty-easy {
-          background-color: #e8f5e9;
-          color: #4caf50;
-        }
-        
-        &.difficulty-medium {
-          background-color: #fff8e1;
-          color: #ffc107;
-        }
-        
-        &.difficulty-hard {
-          background-color: #ffebee;
-          color: #f44336;
-        }
+        &.difficulty-easy { background-color: #e8f5e9; color: #4caf50; }
+        &.difficulty-medium { background-color: #fffbe0; color: #ffc107; }
+        &.difficulty-hard { background-color: #ffebee; color: #f44336; }
       }
     }
   }
 }
-
 .recent-list {
+  background-color: #fff;
+  border-radius: 20rpx;
+  padding: 0 20rpx;
+  margin-bottom: 30rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
   .recent-item {
     padding: 20rpx 0;
-    border-bottom: 1px solid #f5f5f5;
-    
-    &:last-child {
-      border-bottom: none;
-    }
-    
+    border-bottom: 1rpx solid #eee;
+    &:last-child { border-bottom: none; }
     .recent-content {
       .recent-title {
         font-size: 28rpx;
         color: #333;
-        margin-bottom: 10rpx;
-        font-weight: 500;
+        font-weight: bold;
+        margin-bottom: 8rpx;
       }
-      
       .recent-info {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        
+        font-size: 24rpx;
+        color: #888;
         .recent-time {
-          font-size: 24rpx;
-          color: #999;
+          margin-right: 20rpx;
         }
-        
         .recent-status {
-          font-size: 24rpx;
-          
-          &.status-right {
-            color: #4caf50;
-          }
-          
-          &.status-wrong {
-            color: #f44336;
-          }
+          &.status-right { color: #4caf50; }
+          &.status-wrong { color: #f44336; }
         }
       }
     }
   }
 }
+.dot-list {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10rpx;
+}
+.dot {
+  width: 18rpx;
+  height: 18rpx;
+  border-radius: 50%;
+  margin-right: 16rpx;
+  background: #e0e0e0;
+  transition: background 0.3s;
+}
+.dot1 {
+  background: linear-gradient(135deg, #a6c0fe 0%, #c2a8fd 100%);
+}
+.dot2 {
+  background: linear-gradient(135deg, #ffaa7f 0%, #ff7eb3 100%);
+}
+.dot:last-child { margin-right: 0; }
 </style>

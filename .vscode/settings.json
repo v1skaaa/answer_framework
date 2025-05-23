@@ -1,0 +1,13 @@
+{
+    "sqltools.connections": [
+        {
+            "previewLimit": 50,
+            "server": "172.16.99.32",
+            "port": 65433,
+            "driver": "PostgreSQL",
+            "name": "LearnDB",
+            "username": "postgres",
+            "database": "learn"
+        }
+    ]
+}
