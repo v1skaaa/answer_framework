@@ -108,11 +108,29 @@ const filteredPaperList = computed(() => {
   return paperList.value;
 });
 
-// 跳转到试卷详情页（待实现）
+// 跳转到试卷详情页
 const goToPaperDetail = (item) => {
-  console.log('Navigate to paper detail for:', item.title);
+  console.log('goToPaperDetail called with item:', item);
   // TODO: Implement actual navigation to paper detail page
   // uni.navigateTo({ url: `/pages/test/paperDetail?id=${item.id}` });
+
+  console.log('Attempting to navigate to /pages/exam/intro/index');
+   // 使用 uni.navigateTo 跳转到试卷介绍页面，并通过 eventChannel 传递数据
+  uni.navigateTo({
+    url: '/pages/exam/intro/index',
+    success: function(res) {
+      console.log('Navigation success');
+      // 通过 eventChannel 向新页面发送数据
+      res.eventChannel.emit('acceptPaperData', { paper: item });
+      console.log('Event emitted: acceptPaperData with paper data', item);
+    },
+    fail: function(err) {
+      console.error('Navigation failed:', err);
+    },
+    complete: function() {
+      console.log('Navigation complete');
+    }
+  });
 };
 
 // Method to go back to the previous page

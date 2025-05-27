@@ -56,6 +56,19 @@
 			"style": {
 				"navigationBarTitleText": "个人中心"
 			}
+		},
+		{
+			"path": "pages/exam/intro/index",
+			"style": {
+				"navigationStyle": "custom"
+			}
+		},
+		// 注册答题页面
+		{
+			"path": "pages/exam/answering/index",
+			"style": {
+				"navigationStyle": "custom"
+			}
 		}
 	],
 	"tabBar": {
