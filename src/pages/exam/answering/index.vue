@@ -42,10 +42,13 @@
                 >
               <!-- Here display question text and images -->
                 <view class="question-main">
-                    <!-- Render question stem with LaTeX component -->
-                    <view>
-                        <text>Raw Formula (Stem): {{ currentQuestion.text }}</text>
-                        <LaTeX :formula="currentQuestion.text" :displayMode="currentQuestion.stemDisplayMode"></LaTeX>
+                    <!-- Render question stem with MathJax component -->
+                    <view class="question-stem-content">
+                         <!-- Iterate through text segments -->
+                         <template v-for="(segment, index) in currentQuestion.textSegments" :key="index">
+                             <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" :scale="0.8"></MathJax>
+                         </template>
                     </view>
                     <image v-if="currentQuestion.image" :src="currentQuestion.image" mode="widthFix" class="question-image"></image>
 
@@ -54,16 +57,19 @@
                         <template v-if="currentQuestion && currentQuestion.options && currentQuestion.options.length > 0">
                             <view 
                                 class="choice-item" 
-                                v-for="(option, index) in currentQuestion.options" 
-                                :key="index"
+                                v-for="(option, optionIndex) in currentQuestion.options" 
+                                :key="optionIndex"
                                 @click="selectOption(option.value)"
                                 :class="{'selected': currentQuestion.selectedAnswers && currentQuestion.selectedAnswers.includes(option.value)}"
                                 >
                                 <text class="option-label">{{ option.label }}</text>
-                                 <!-- Render option text with LaTeX component -->
-                                <view>
-                                    <text>Raw Formula (Option {{ option.label }}): {{ option.text }}</text>
-                                    <LaTeX :formula="option.text" :displayMode="option.displayMode"></LaTeX>
+                                 <!-- Render option text with MathJax component -->
+                                <view class="option-text-content">
+                                    <!-- Iterate through option text segments -->
+                                     <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
+                                         <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" :scale="0.6"></MathJax>
+                                     </template>
                                 </view>
                             </view>
                         </template>
@@ -88,10 +94,13 @@
             :animation="animationData"
             >
             <view class="question-main">
-                 <!-- Render question stem with LaTeX component -->
-                <view>
-                    <text>Raw Formula (Stem): {{ currentQuestion.text }}</text>
-                    <LaTeX :formula="currentQuestion.text" :displayMode="currentQuestion.stemDisplayMode"></LaTeX>
+                 <!-- Render question stem with MathJax component -->
+                <view class="question-stem-content">
+                     <!-- Iterate through text segments -->
+                     <template v-for="(segment, index) in currentQuestion.textSegments" :key="index">
+                         <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" :scale="0.8"></MathJax>
+                     </template>
                 </view>
                 <image v-if="currentQuestion.image" :src="currentQuestion.image" mode="widthFix" class="question-image"></image>
 
@@ -100,16 +109,19 @@
                     <template v-if="currentQuestion && currentQuestion.options && currentQuestion.options.length > 0">
                         <view 
                             class="choice-item" 
-                            v-for="(option, index) in currentQuestion.options" 
-                            :key="index"
+                            v-for="(option, optionIndex) in currentQuestion.options" 
+                            :key="optionIndex"
                             @click="selectOption(option.value)"
                             :class="{'selected': currentQuestion.selectedAnswers && currentQuestion.selectedAnswers.includes(option.value)}"
                             >
                             <text class="option-label">{{ option.label }}</text>
-                             <!-- Render option text with LaTeX component -->
-                            <view>
-                                <text>Raw Formula (Option {{ option.label }}): {{ option.text }}</text>
-                                <LaTeX :formula="option.text" :displayMode="option.displayMode"></LaTeX>
+                             <!-- Render option text with MathJax component -->
+                            <view class="option-text-content">
+                                 <!-- Iterate through option text segments -->
+                                 <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
+                                     <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                     <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" :scale="0.6"></MathJax>
+                                 </template>
                             </view>
                         </view>
                     </template>
@@ -161,7 +173,7 @@ import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 // uni-icons will be automatically imported via easycom
 import { onLoad } from '@dcloudio/uni-app';
 import { getQuestionList } from '@/api/exam'; // Import the new API function
-import LaTeX from '@/components/LaTeX.vue'; // Import the LaTeX component
+import MathJax from '@/components/MathJax.vue'; // Import the MathJax component
 
 // Declare optionClickedRecently ref to prevent ReferenceError
 const optionClickedRecently = ref(false);
@@ -329,39 +341,64 @@ const runMPAnimation = (direction, callback) => {
     // #endif
 };
 
-// Helper function to extract LaTeX formula and determine display mode
-const extractAndCleanFormula = (text) => {
+// Helper function to parse text with LaTeX formulas
+const parseMathText = (text) => {
   if (!text || typeof text !== 'string') {
-    return { formula: '', displayMode: false };
+    return [];
   }
 
-  let formula = text;
-  let displayMode = false;
+  const segments = [];
+  let lastIndex = 0;
 
-  // Check for $$...$$ delimiters (display mode)
-  const displayMatch = text.match(/^\$\$(.*?)\$\$$/);
-  if (displayMatch && displayMatch[1]) {
-    formula = displayMatch[1].trim();
-    displayMode = true;
-  } else {
-    // Check for $...$ delimiters (inline mode)
-    const inlineMatch = text.match(/^\$(.*?)\$$/);
-     if (inlineMatch && inlineMatch[1]) {
-       formula = inlineMatch[1].trim();
-       displayMode = false;
-     } else {
-       // If no delimiters, assume it's not a formula or handle as plain text
-       // For now, just use the original text if no delimiters found
-       formula = text.trim();
-       displayMode = false;
-     }
+  // Regex to find both $$...$$ and $...$ delimiters
+  // This regex is simplified and might need refinement for complex nested cases
+  const regex = /\$\$(.*?)\$\$|\$(.*?)\$/g;
+  let match;
+
+  // Reset regex lastIndex before starting the loop
+  regex.lastIndex = 0;
+
+  while ((match = regex.exec(text)) !== null) {
+    const formulaStart = match.index;
+    const formulaEnd = regex.lastIndex;
+    const delimiter = match[0];
+
+    // Add preceding text segment
+    if (formulaStart > lastIndex) {
+      segments.push({ type: 'text', content: text.substring(lastIndex, formulaStart) });
+    }
+
+    // Extract and add formula segment
+    let formulaContent = '';
+    let displayMode = false;
+
+    if (delimiter.startsWith('$$')) { // $$...$$
+      formulaContent = match[1]; // Should capture "P" or "O"
+      displayMode = true;
+    } else if (delimiter.startsWith('$')) { // $...$
+      formulaContent = match[2]; // Should capture content inside $...$
+      displayMode = false;
+    }
+
+    segments.push({ type: 'formula', content: formulaContent.trim(), displayMode: displayMode });
+
+    lastIndex = formulaEnd;
   }
 
-   // Basic cleaning: replace \r\n with space if they are within formulas (often from databases)
-   // This might need more sophisticated handling depending on the data source
-   formula = formula.replace(/[\r\n]+/g, ' ');
+  // Add any remaining text segment after the last formula
+  if (lastIndex < text.length) {
+    segments.push({ type: 'text', content: text.substring(lastIndex) });
+  }
 
-  return { formula, displayMode };
+   // Basic cleaning for text segments (optional, depending on data)
+   segments.forEach(segment => {
+       if (segment.type === 'text') {
+           segment.content = segment.content.replace(/[\r\n]+/g, ' '); // Replace newlines in text segments
+       }
+   });
+
+
+  return segments;
 };
 
 // 模拟数据填充 (替代接口请求)
@@ -383,14 +420,13 @@ const loadMockData = async (sourceId) => {
         id: item.qcId, // Use qcId as question ID
         number: item.queSort, // Use queSort as question number
         type: 'choice', // Assuming all questions are choice for now based on sample data
-        text: item.queStem ? extractAndCleanFormula(item.queStem).formula : '', // Process question stem
-        // Add a property to indicate display mode for the stem
-        stemDisplayMode: item.queStem ? extractAndCleanFormula(item.queStem).displayMode : false,
+        // Use the new parsing function for text content
+        textSegments: item.queStem ? parseMathText(item.queStem) : [], 
         options: [
-          { label: 'A', text: item.optionA ? extractAndCleanFormula(item.optionA).formula : '', value: 'A', displayMode: item.optionA ? extractAndCleanFormula(item.optionA).displayMode : false },
-          { label: 'B', text: item.optionB ? extractAndCleanFormula(item.optionB).formula : '', value: 'B', displayMode: item.optionB ? extractAndCleanFormula(item.optionB).displayMode : false },
-          { label: 'C', text: item.optionC ? extractAndCleanFormula(item.optionC).formula : '', value: 'C', displayMode: item.optionC ? extractAndCleanFormula(item.optionC).displayMode : false },
-          { label: 'D', text: item.optionD ? extractAndCleanFormula(item.optionD).formula : '', value: 'D', displayMode: item.optionD ? extractAndCleanFormula(item.optionD).displayMode : false },
+          { label: 'A', segments: item.optionA ? parseMathText(item.optionA) : [], value: 'A' },
+          { label: 'B', segments: item.optionB ? parseMathText(item.optionB) : [], value: 'B' },
+          { label: 'C', segments: item.optionC ? parseMathText(item.optionC) : [], value: 'C' },
+          { label: 'D', segments: item.optionD ? parseMathText(item.optionD) : [], value: 'D' },
           // Add other options if they exist (e.g., optionE, optionF, etc.)
         ], // Removed filter
         selectedAnswers: [], // Initialize as empty array for multi-select
@@ -1120,5 +1156,30 @@ onLoad((options) => {
   margin: 0;
 }
 /* #endif */
+
+.question-stem-content,
+.option-text-content {
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+/* Style for the MathJax container when in display mode (should act like a block) */
+/* We need to target the MathJax component's root element */
+/* Since we can't directly add a class based on displayMode prop, we might need to */
+/* adjust the MathJax.vue component itself or rely on the displayMode prop affecting */
+/* the rendered output structure or add a class conditionally in the template */
+
+/* For now, let's try to ensure text and inline formulas align well */
+.question-stem-content text,
+.option-text-content text {
+  vertical-align: middle;
+}
+
+/* Assuming MathJax component root is .mathjax-container */
+/* Need to find a way to apply block-like behavior conditionally */
+/* Let's add a simple margin for now to separate inline elements */
+.mathjax-container {
+  margin: 0 2rpx; /* Add small horizontal margin for inline formulas */
+}
 
 </style> 
