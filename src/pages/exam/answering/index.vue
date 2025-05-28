@@ -342,62 +342,132 @@ const runMPAnimation = (direction, callback) => {
 };
 
 // Helper function to parse text with LaTeX formulas
+// Helper function to parse text with LaTeX formulas
+// Helper function to parse text with LaTeX formulas (优化版本)
 const parseMathText = (text) => {
   if (!text || typeof text !== 'string') {
     return [];
   }
-
+  
   const segments = [];
-  let lastIndex = 0;
-
-  // Regex to find both $$...$$ and $...$ delimiters
-  // This regex is simplified and might need refinement for complex nested cases
-  const regex = /\$\$(.*?)\$\$|\$(.*?)\$/g;
-  let match;
-
-  // Reset regex lastIndex before starting the loop
-  regex.lastIndex = 0;
-
-  while ((match = regex.exec(text)) !== null) {
-    const formulaStart = match.index;
-    const formulaEnd = regex.lastIndex;
-    const delimiter = match[0];
-
-    // Add preceding text segment
-    if (formulaStart > lastIndex) {
-      segments.push({ type: 'text', content: text.substring(lastIndex, formulaStart) });
+  let currentIndex = 0;
+  
+  while (currentIndex < text.length) {
+    // 查找下一个数学公式的开始位置
+    let nextDisplayMath = text.indexOf('$$', currentIndex);
+    let nextInlineMath = text.indexOf('$', currentIndex);
+    
+    // 如果找到了 $$，检查它是否在 $ 之前
+    if (nextDisplayMath !== -1 && (nextInlineMath === -1 || nextDisplayMath <= nextInlineMath)) {
+      // 处理 display math $$...$$
+      
+      // 添加之前的文本
+      if (nextDisplayMath > currentIndex) {
+        const textContent = text.substring(currentIndex, nextDisplayMath);
+        if (textContent.trim()) {
+          segments.push({
+            type: 'text',
+            content: textContent
+          });
+        }
+      }
+      
+      // 查找对应的结束 $$
+      const endDisplayMath = text.indexOf('$$', nextDisplayMath + 2);
+      if (endDisplayMath !== -1) {
+        const formulaContent = text.substring(nextDisplayMath + 2, endDisplayMath);
+        if (formulaContent.trim()) {
+          segments.push({
+            type: 'formula',
+            content: formulaContent.trim(),
+            displayMode: true
+          });
+        }
+        currentIndex = endDisplayMath + 2;
+      } else {
+        // 没有找到结束的 $$，将其作为普通文本处理
+        segments.push({
+          type: 'text',
+          content: text.substring(currentIndex)
+        });
+        break;
+      }
+      
+    } else if (nextInlineMath !== -1) {
+      // 处理 inline math $...$
+      
+      // 添加之前的文本
+      if (nextInlineMath > currentIndex) {
+        const textContent = text.substring(currentIndex, nextInlineMath);
+        if (textContent.trim()) {
+          segments.push({
+            type: 'text',
+            content: textContent
+          });
+        }
+      }
+      
+      // 查找对应的结束 $（但不能是 $$）
+      let endInlineMath = -1;
+      let searchIndex = nextInlineMath + 1;
+      
+      while (searchIndex < text.length) {
+        const nextDollar = text.indexOf('$', searchIndex);
+        if (nextDollar === -1) break;
+        
+        // 检查是否是 $$（应该跳过）
+        if (text.charAt(nextDollar + 1) === '$') {
+          searchIndex = nextDollar + 2;
+          continue;
+        }
+        
+        endInlineMath = nextDollar;
+        break;
+      }
+      
+      if (endInlineMath !== -1) {
+        const formulaContent = text.substring(nextInlineMath + 1, endInlineMath);
+        if (formulaContent.trim()) {
+          segments.push({
+            type: 'formula',
+            content: formulaContent.trim(),
+            displayMode: false
+          });
+        }
+        currentIndex = endInlineMath + 1;
+      } else {
+        // 没有找到结束的 $，将其作为普通文本处理
+        segments.push({
+          type: 'text',
+          content: text.substring(currentIndex)
+        });
+        break;
+      }
+      
+    } else {
+      // 没有找到更多的数学公式，添加剩余文本
+      const textContent = text.substring(currentIndex);
+      if (textContent.trim()) {
+        segments.push({
+          type: 'text',
+          content: textContent
+        });
+      }
+      break;
     }
-
-    // Extract and add formula segment
-    let formulaContent = '';
-    let displayMode = false;
-
-    if (delimiter.startsWith('$$')) { // $$...$$
-      formulaContent = match[1]; // Should capture "P" or "O"
-      displayMode = true;
-    } else if (delimiter.startsWith('$')) { // $...$
-      formulaContent = match[2]; // Should capture content inside $...$
-      displayMode = false;
-    }
-
-    segments.push({ type: 'formula', content: formulaContent.trim(), displayMode: displayMode });
-
-    lastIndex = formulaEnd;
   }
-
-  // Add any remaining text segment after the last formula
-  if (lastIndex < text.length) {
-    segments.push({ type: 'text', content: text.substring(lastIndex) });
+  
+  // 如果没有找到任何公式，返回整个文本作为文本段
+  if (segments.length === 0 && text.trim()) {
+    segments.push({ 
+      type: 'text', 
+      content: text 
+    });
   }
-
-   // Basic cleaning for text segments (optional, depending on data)
-   segments.forEach(segment => {
-       if (segment.type === 'text') {
-           segment.content = segment.content.replace(/[\r\n]+/g, ' '); // Replace newlines in text segments
-       }
-   });
-
-
+  
+  console.log('解析文本:', text);
+  console.log('解析结果:', segments);
+  
   return segments;
 };
 
