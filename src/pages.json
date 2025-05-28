@@ -70,6 +70,13 @@
 			"style": {
 				"navigationStyle": "custom"
 			}
+		},
+		{
+			"path": "pages/exam/result/index",
+			"style": {
+				"navigationBarTitleText": "结果详情",
+				"navigationStyle": "custom"
+			}
 		}
 	],
 	"tabBar": {

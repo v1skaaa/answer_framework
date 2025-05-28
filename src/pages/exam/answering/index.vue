@@ -116,7 +116,7 @@
       <view class="question-card-content" @click.stop>
         <view class="card-header">
           <text class="card-title">答题卡</text>
-          <uni-icons type="close" size="24" color="#333" @click="toggleQuestionCard"></uni-icons>
+          <text class="card-close-icon" @click="toggleQuestionCard">×</text>
         </view>
         <scroll-view class="card-body" scroll-y>
           <view class="question-type-section" v-for="(type, typeIndex) in questionTypes" :key="typeIndex">
@@ -531,11 +531,30 @@ const toggleQuestionCard = () => {
 // 交卷并查看结果（待实现）
 const submitExam = () => {
   console.log('交卷并查看结果 clicked');
-  // TODO: 实现交卷逻辑，收集用户答案，发送到后端，跳转到结果页面并传递答题数据
-  const userAnswer = questions.value.map(q => ({ id: q.id, selectedAnswer: q.selectedAnswer }));
-  console.log('用户答案:', userAnswer);
-  // 示例跳转到结果页面
-  // uni.navigateTo({ url: '/pages/exam/result', success: (res) => { res.eventChannel.emit('acceptResultData', { userAnswer: userAnswer, paperTitle: paperTitle.value }); } });
+  // 收集用户答案和题目信息
+  const userAnswer = questions.value.map(q => ({
+      id: q.id,
+      selectedAnswer: q.selectedAnswer
+  }));
+  const examData = {
+      userAnswer: userAnswer,
+      questions: questions.value, // Pass the original questions data including correct answers
+      paperTitle: paperTitle.value,
+      startTime: Date.now() - (3600 - timeRemaining.value) * 1000 // Calculate start time based on remaining time
+  };
+  console.log('准备传递的数据:', examData);
+
+  // 跳转到结果页面并传递数据
+  uni.navigateTo({
+      url: '/pages/exam/result/index',
+      success: (res) => {
+          // 通过 eventChannel 传递数据
+          res.eventChannel.emit('acceptResultData', examData);
+      },
+      fail: (err) => {
+          console.error('跳转到结果页面失败:', err);
+      }
+  });
 };
 
 // 倒计时逻辑
@@ -733,8 +752,6 @@ onUnmounted(() => {
 }
 
 .choice-item {
-  background-color: #fff;
-  border: 1rpx solid #eee;
   border-radius: 8rpx;
   padding: 20rpx;
   margin-bottom: 15rpx;
@@ -755,9 +772,16 @@ onUnmounted(() => {
 
 .option-label {
   font-size: 30rpx;
-  font-weight: bold;
-  color: #333;
+  font-weight: normal;
+  color: #007aff;
   margin-right: 20rpx;
+  width: 50rpx;
+  height: 50rpx;
+  border: 1rpx solid #007aff;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .option-text {
@@ -814,6 +838,17 @@ onUnmounted(() => {
   align-items: center;
   padding: 20rpx;
   border-bottom: 1rpx solid #eee;
+}
+
+.card-header uni-icons {
+  /* Attempt to override uni-icons default styling */
+  background-color: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  /* Ensure icon color is correct */
+  color: #333 !important;
+  /* Also try removing any potential margin */
+  margin: 0 !important;
 }
 
 .card-title {
@@ -942,6 +977,15 @@ onUnmounted(() => {
     background-color: #fff;
     min-height: 100%;
     box-sizing: border-box;
+}
+
+.card-close-icon {
+  font-size: 48rpx; /* Adjust size as needed */
+  color: #333; /* Match original color */
+  cursor: pointer;
+  line-height: 1; /* Ensure character is vertically centered if needed */
+  padding: 0;
+  margin: 0;
 }
 /* #endif */
 
