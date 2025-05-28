@@ -127,7 +127,7 @@ const goToTest = () => {
 
 onMounted(() => {
   // 检查是否登录
-  const token = uni.getStorageSync('token');
+  const token = uni.getStorageSync('accessToken');
   if (!token) {
     uni.redirectTo({
       url: '/pages/login/index'

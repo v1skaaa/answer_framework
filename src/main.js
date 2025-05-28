@@ -2,6 +2,7 @@ import {
 	createSSRApp
 } from "vue";
 import App from "./App.vue";
+import { createPinia } from 'pinia';
 
 // 引入uni-ui组件
 import uniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
@@ -11,6 +12,12 @@ import uniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 
 export function createApp() {
 	const app = createSSRApp(App);
+	
+	// 创建 Pinia 实例
+	const pinia = createPinia();
+	
+	// 将 Pinia 安装到应用中
+	app.use(pinia);
 	
 	// 注册全局组件
 	app.component('uni-icons', uniIcons);

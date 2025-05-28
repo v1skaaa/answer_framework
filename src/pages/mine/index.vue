@@ -99,8 +99,11 @@ const showLogoutConfirm = () => {
 };
 
 const logout = () => {
-  uni.removeStorageSync('token');
-  uni.removeStorageSync('userInfo');
+  uni.removeStorageSync('accessToken');
+  uni.removeStorageSync('refreshToken');
+  uni.removeStorageSync('username');
+  uni.removeStorageSync('nickname');
+  uni.removeStorageSync('avatar');
   uni.reLaunch({
     url: '/pages/login/index'
   });
@@ -108,7 +111,7 @@ const logout = () => {
 
 onMounted(() => {
   // 获取真实用户数据或使用模拟数据
-  const token = uni.getStorageSync('token');
+  const token = uni.getStorageSync('accessToken');
   if (!token) {
     uni.redirectTo({
       url: '/pages/login/index'

@@ -13,16 +13,16 @@
     </view>
 
     <!-- 页面主要内容 -->
-    <view class="content">
+    <view class="content" v-if="paper">
       <!-- 将试卷名称放在内容区域的顶部 -->
       <view class="paper-title-in-content">{{ paper.title || '试卷详情' }}</view>
 
-      <view class="info-section">
+      <view class="info-section" v-if="paper.difficulty !== undefined && paper.totalScore !== undefined">
         <text class="info-item">本试卷难度{{ paper.difficulty }}</text>
         <text class="info-item">总分{{ paper.totalScore }}分</text>
       </view>
 
-      <view class="question-breakdown-section">
+      <view class="question-breakdown-section" v-if="paper.parts && paper.parts.length > 0">
         <text class="section-title">共分为{{ paper.parts.length }}个部分:</text>
         <view class="breakdown-list">
           <view class="breakdown-item" v-for="(part, index) in paper.parts" :key="index">
@@ -80,6 +80,8 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'; // Import nextTick
+import { onLoad } from '@dcloudio/uni-app'; // Import onLoad
+import { getPaperSourceDetail } from '@/api/test';
 // uni-icons will be automatically imported via easycom
 
 // 获取胶囊按钮位置信息和状态栏高度
@@ -126,9 +128,35 @@ const overlayTop = computed(() => {
   return calculatedTop;
 });
 
+// 在页面加载时获取传递的数据
+onLoad((options) => {
+    console.log('intro: Page onLoad'); // Add log
+    // 从 options 参数获取传递过来的 sourceId
+    if (options && options.sourceId) {
+        const sourceId = options.sourceId;
+        console.log('intro: Received sourceId from options:', sourceId); // Add log
+        console.log('intro: Calling fetchPaperDetail with sourceId:', sourceId); // Add log
+        fetchPaperDetail(sourceId);
+    } else {
+        console.log('intro: No sourceId received from options'); // Add log
+         // 如果没有接收到 sourceId，可以初始化 paper 为加载失败状态
+        paper.value = {
+            title: '未获取到试卷信息',
+            difficulty: undefined,
+            totalScore: undefined,
+            parts: [],
+            id: null
+        };
+        uni.showToast({
+            title: '未获取到试卷信息',
+            icon: 'none'
+        });
+    }
+});
+
 onMounted(() => {
   // #ifdef MP-WEIXIN
-  const menuButtonInfo = uni.getMenuButtonBoundingClientRect();
+  const menuButtonInfo = uni.getMenuButtonClientRect();
   menuButtonHeight.value = menuButtonInfo.height;
   menuButtonTop.value = menuButtonInfo.top;
   // #endif
@@ -150,22 +178,80 @@ onMounted(() => {
        }
      }).exec();
    });
-});
 
+});
 
 // 模拟试卷数据（没有接口前的占位数据）
 const paper = ref({
-  title: '2022年普通高等学校招生全国统一考试 (上海卷) : 数学',
-  difficulty: 4.7,
-  totalScore: 150,
-  parts: [
-    { name: '选择题', count: 9, score: 45 },
-    { name: '填空题', count: 6, score: 30 },
-    { name: '解答题', count: 5, score: 75 },
-  ],
+  title: '加载中...', // 初始标题，等待API数据更新
+  difficulty: undefined, // Initialize with undefined
+  totalScore: undefined, // Initialize with undefined
+  parts: [], // Initialize as empty array
   // 可以在这里添加更多试卷相关信息，比如 ID
   id: null,
 });
+
+// 根据sourceId获取试卷详情并更新标题
+const fetchPaperDetail = async (sourceId) => {
+  console.log('fetchPaperDetail called with sourceId:', sourceId); // Add log
+  if (!sourceId) {
+    console.warn('fetchPaperDetail: No sourceId provided');
+     // Optionally update paper state to indicate error or missing data
+     paper.value = {
+        title: '加载失败',
+        difficulty: undefined,
+        totalScore: undefined,
+        parts: [],
+        id: null
+    };
+    return;
+  }
+  try {
+    // this.loading = true; // 如果需要加载状态，可以在这里设置
+    const res = await getPaperSourceDetail(sourceId);
+    console.log('fetchPaperDetail: API response:', res); // Add log
+    if (res.flag === '1' && res.result) {
+      // Only update title and id from API, keep other mock data if needed
+      paper.value.title = res.result.sourceName; // 更新试卷名称
+      paper.value.id = res.result.sourceId; // 存储试卷ID
+       // Keep existing mock data for other fields, or update if API provides them
+       // paper.value.difficulty = res.result.difficulty; // Uncomment if API provides
+       // paper.value.totalScore = res.result.totalScore; // Uncomment if API provides
+       // paper.value.parts = res.result.parts; // Uncomment if API provides
+      console.log('fetchPaperDetail: Successfully updated paper title to:', paper.value.title); // Add log
+    } else {
+        console.error('fetchPaperDetail: 获取试卷详情失败:', res.msg);
+         // Update paper state to indicate error
+        paper.value = {
+            title: res.msg || '获取试卷详情失败',
+            difficulty: undefined,
+            totalScore: undefined,
+            parts: [],
+            id: null
+        };
+        uni.showToast({
+          title: res.msg || '获取试卷详情失败',
+          icon: 'none'
+        });
+    }
+  } catch (error) {
+    console.error('fetchPaperDetail: 获取试卷详情异常:', error);
+     // Update paper state to indicate error
+    paper.value = {
+        title: '获取试卷详情异常',
+        difficulty: undefined,
+        totalScore: undefined,
+        parts: [],
+        id: null
+    };
+     uni.showToast({
+        title: '获取试卷详情异常',
+        icon: 'none'
+      });
+  } finally {
+    // this.loading = false; // 如果需要加载状态，在这里结束
+  }
+};
 
 // Filter options
 const regions = ref(['全部', '广东', '湖北', '广西']); // Example provinces
@@ -184,11 +270,10 @@ const showGradeSelect = ref(false);
 
 // Filtered list based on selections
 const filteredPaperList = computed(() => {
-  return paperList.value.filter(item => {
-    const regionMatch = selectedRegion.value === '全部' || item.province === selectedRegion.value;
-    const gradeMatch = selectedGrade.value === '全部' || item.grade === selectedGrade.value;
-    return regionMatch && gradeMatch;
-  });
+  // This computed property seems to be leftover from the list page,
+  // as this page only displays a single paper. It can likely be removed.
+  console.warn('filteredPaperList computed property is being accessed in intro page - check if needed.');
+  return []; // Return empty array or remove if not needed
 });
 
 // Handlers for filter selection
@@ -213,8 +298,10 @@ const selectGrade = (grade) => {
 };
 
 // 跳转到试卷详情页（待实现）
+// This seems to be leftover from the list page. The navigation to intro is handled by the list page.
+// goToPaperDetail in this file is not used by clicking on a paper item in this page.
 const goToPaperDetail = (item) => {
-  console.log('Navigate to paper detail for:', item.title);
+  console.log('goToPaperDetail called in intro page - check if needed.', item);
   // TODO: Implement actual navigation to paper detail page
   // uni.navigateTo({ url: `/pages/test/paperDetail?id=${item.id}` });
 };
@@ -228,39 +315,39 @@ const goBack = () => {
 const startExam = () => {
   console.log('开始答题 clicked');
   // TODO: Implement开始答题的逻辑，比如跳转到答题界面，并传递试卷ID等
-  // uni.navigateTo({ url: `/pages/test/paperDetail?id=${item.id}` });
 
-  // 使用事件通道传递试卷数据并跳转到答题页面
+  // 使用 URL 参数传递 paper.id 到答题页面
+  const answeringUrl = `/pages/exam/answering/index?paperId=${paper.value.id}`;
+  console.log('Navigating to answering page with URL:', answeringUrl);
+
   uni.navigateTo({
-    url: '/pages/exam/answering/index',
-    events: {
-      // 为答题页面定义一个事件监听器
-      acceptPaperData: function(data) {
-        console.log('Answering page received data:', data);
-        // 在答题页面通过 getOpenerEventChannel() 监听这个事件来接收数据
-      }
-    },
+    url: answeringUrl,
     success: function (res) {
-      // 通过eventChannel向目标页面发送数据
-      res.eventChannel.emit('acceptPaperData', { paper: paper.value });
+      console.log('Navigation success to answering page');
+    },
+     fail: function(err) {
+      console.error('Navigation to answering page failed:', err);
+       uni.showToast({
+        title: '跳转答题页失败',
+        icon: 'none'
+      });
     }
   });
 };
 
 // TODO: 从页面参数获取试卷信息，并更新 paper.value
-// ... existing code ...
+// 这一段逻辑已经被 onLoad 中的 options 参数获取替代
 
 // 移除原先的 onMounted 逻辑，合并到上面的 onMounted 中
 /*
 onMounted(() => {
   // #ifdef MP-WEIXIN
-  const menuButtonInfo = uni.getMenuButtonBoundingClientRect();
+  const menuButtonInfo = uni.getMenuButtonClientRect();
   menuButtonHeight.value = menuButtonInfo.height;
   menuButtonTop.value = menuButtonInfo.top;
   // #endif
 });
 */
-
 </script>
 
 <style lang="scss">

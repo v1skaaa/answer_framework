@@ -7,15 +7,16 @@
       <view class="page-title">高考真题</view>
       <view class="placeholder"></view>
     </view>
+    
     <view class="paper-list">
-      <view class="paper-item" v-for="(item, index) in paperList" :key="index" @click="goToPaperDetail(item)">
+      <view v-if="testStore.loading" class="loading">加载中...</view>
+      <view v-else-if="testStore.paperList.length === 0" class="no-data">暂无试卷</view>
+      <view v-else class="paper-item" v-for="(item, index) in testStore.paperList" :key="index" @click="goToPaperDetail(item)">
         <view class="paper-info">
-          <text class="paper-title">{{ item.year }}年普通高等学校招生全国统一考试</text>
-          <text class="paper-subtitle">({{ item.context }}) : {{ item.subject }}</text>
-          <text class="paper-questions">共{{ item.questions }}道题</text>
+          <text class="paper-title">{{ item.title }}</text>
         </view>
-        <view class="paper-status">
-          <text :class="['status-button', 'status-' + item.status]">{{ item.statusText }}</text>
+        <view class="paper-arrow">
+          <uni-icons type="right" size="16" color="#999"></uni-icons>
         </view>
       </view>
     </view>
@@ -24,6 +25,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
+import { useTestStore } from '@/stores/test';
 // uni-icons will be automatically imported via easycom
  
 // 获取胶囊按钮位置信息
@@ -33,29 +35,43 @@ const navBarHeight = ref(0);
 const systemInfo = uni.getSystemInfoSync();
 const statusBarHeight = systemInfo.statusBarHeight;
 
+// 获取试卷 store
+const testStore = useTestStore();
+
 // 计算头部总高度
 const headerHeight = computed(() => {
   // #ifdef MP-WEIXIN
-  return menuButtonTop.value + menuButtonHeight.value + 'px'; // 小程序端：胶囊顶部到屏幕顶部的距离 + 胶囊高度
+  return menuButtonTop.value + menuButtonHeight.value + 'px';
   // #endif
   // #ifdef H5
-  return (statusBarHeight + 44) + 'px'; // H5端：状态栏高度 + 标准导航栏高度44px
+  return (statusBarHeight + 44) + 'px';
   // #endif
-  return '0px'; // Default
+  return '0px';
 });
 
-// 计算内容区域的顶部内边距，增加额外空间
+// 计算内容区域的顶部内边距
 const containerPaddingTop = computed(() => {
-    const extraSpace = 20; // 额外增加的像素值
-   // #ifdef MP-WEIXIN
-  return menuButtonTop.value + menuButtonHeight.value + extraSpace + 'px'; // 小程序端：头部高度 + 额外空间
+  const extraSpace = 20;
+  // #ifdef MP-WEIXIN
+  return menuButtonTop.value + menuButtonHeight.value + extraSpace + 'px';
   // #endif
   // #ifdef H5
-  return (statusBarHeight + 44 + extraSpace) + 'px'; // H5端：头部高度 + 额外空间
+  return (statusBarHeight + 44 + extraSpace) + 'px';
   // #endif
-  return '0px'; // Default
+  return '0px';
 });
 
+// 获取试卷列表
+const fetchPaperList = async () => {
+  try {
+    await testStore.fetchPaperList();
+  } catch (error) {
+    uni.showToast({
+      title: '获取试卷列表失败',
+      icon: 'none'
+    });
+  }
+};
 
 onMounted(() => {
   // #ifdef MP-WEIXIN
@@ -64,76 +80,51 @@ onMounted(() => {
   menuButtonTop.value = menuButtonInfo.top;
   navBarHeight.value = statusBarHeight + menuButtonInfo.height + 8;
   // #endif
-});
-
-// 模拟试卷数据
-const paperList = ref([
-  {
-    id: 1,
-    year: 2022,
-    context: '上海卷',
-    subject: '数学',
-    questions: 21,
-    status: 'not-finished',
-    statusText: '未完成'
-  },
-  {
-    id: 2,
-    year: 2023,
-    context: '北京卷',
-    subject: '数学',
-    questions: 21,
-    status: 'not-started',
-    statusText: '未做'
-  },
-  {
-    id: 3,
-    year: 2023,
-    context: '北京卷',
-    subject: '数学',
-    questions: 21,
-    status: 'finished',
-    statusText: '已完成'
-  }
-]);
-
-// Filter options
-// ... existing code ...
-
-// Selected filters
-// ... existing code ...
-
-// Filtered list based on selections
-const filteredPaperList = computed(() => {
-  return paperList.value;
+  
+  // 获取试卷列表
+  fetchPaperList();
 });
 
 // 跳转到试卷详情页
 const goToPaperDetail = (item) => {
   console.log('goToPaperDetail called with item:', item);
-  // TODO: Implement actual navigation to paper detail page
-  // uni.navigateTo({ url: `/pages/test/paperDetail?id=${item.id}` });
+  if (!item || !item.id) {
+    console.error('Invalid item or item.id for navigation:', item);
+    uni.showToast({
+      title: '试卷信息错误，无法跳转',
+      icon: 'none'
+    });
+    return; // 如果item或item.id无效，则停止执行
+  }
 
-  console.log('Attempting to navigate to /pages/exam/intro/index');
-   // 使用 uni.navigateTo 跳转到试卷介绍页面，并通过 eventChannel 传递数据
+  const url = `/pages/exam/intro/index?sourceId=${item.id}`; // 通过URL参数传递sourceId
+  console.log('Navigating to intro page with URL:', url); // 添加日志确认导航URL
+
   uni.navigateTo({
-    url: '/pages/exam/intro/index',
+    url: url,
+    // 移除 events 参数，不再使用事件通道
+    // events: {
+    //   acceptPaperData: function(data) {
+    //     console.log('Answering page received data:', data);
+    //   }
+    // },
     success: function(res) {
-      console.log('Navigation success');
-      // 通过 eventChannel 向新页面发送数据
-      res.eventChannel.emit('acceptPaperData', { paper: item });
-      console.log('Event emitted: acceptPaperData with paper data', item);
+      console.log('Navigation success to intro page'); // 添加日志确认导航成功
+      // 移除 eventChannel.emit，因为不再使用事件通道
+      // res.eventChannel.emit('acceptPaperData', { paper: item });
+      // console.log('Event emitted: acceptPaperData with paper data', item); // Add log
     },
     fail: function(err) {
-      console.error('Navigation failed:', err);
-    },
-    complete: function() {
-      console.log('Navigation complete');
+      console.error('Navigation failed to intro page:', err); // 添加日志确认导航失败原因
+      uni.showToast({
+        title: '跳转失败',
+        icon: 'none'
+      });
     }
   });
 };
 
-// Method to go back to the previous page
+// 返回上一页
 const goBack = () => {
   uni.navigateBack();
 };
@@ -229,48 +220,17 @@ const goBack = () => {
     font-weight: bold;
     color: #333;
     display: block;
-    margin-bottom: 8rpx;
-  }
-
-  .paper-subtitle {
-    font-size: 24rpx;
-    color: #666;
-    display: block;
-    margin-bottom: 4rpx;
-  }
-
-  .paper-questions {
-    font-size: 24rpx;
-    color: #888;
   }
 }
 
-.paper-status {
-  .status-button {
-    font-size: 24rpx;
-    padding: 8rpx 16rpx;
-    border-radius: 12rpx;
-    
-    &.status-not-finished {
-      background-color: #ffecb3; /* Light orange */
-      color: #ff9800; /* Orange */
-    }
-
-    &.status-not-started {
-      background-color: #e0e0e0; /* Light gray */
-      color: #757575; /* Gray */
-    }
-
-    &.status-finished {
-      background-color: #c8e6c9; /* Light green */
-      color: #4caf50; /* Green */
-    }
-  }
+.paper-arrow {
+  display: flex;
+  align-items: center;
 }
 
-.no-data {
-    text-align: center;
-    color: #999;
-    margin-top: 40rpx;
+.loading, .no-data {
+  text-align: center;
+  color: #999;
+  padding: 40rpx 0;
 }
 </style> 

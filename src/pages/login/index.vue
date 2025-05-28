@@ -8,13 +8,13 @@
       
       <view class="form-item">
         <text class="label">用户名</text>
-        <view class="input-wrapper" :class="{'active': usernameFocus}">
+        <view class="input-wrapper" :class="{'active': state.usernameFocus}">
           <input 
             type="text" 
-            v-model="username" 
+            v-model="state.username" 
             placeholder="请输入用户名" 
-            @focus="usernameFocus = true" 
-            @blur="usernameFocus = false" 
+            @focus="state.usernameFocus = true" 
+            @blur="state.usernameFocus = false" 
           />
           <view class="icon-wrapper">
             <uni-icons type="person" size="22" color="#a6c0fe"></uni-icons>
@@ -24,13 +24,13 @@
       
       <view class="form-item">
         <text class="label">密码</text>
-        <view class="input-wrapper" :class="{'active': passwordFocus}">
+        <view class="input-wrapper" :class="{'active': state.passwordFocus}">
           <input 
             type="password" 
-            v-model="password" 
+            v-model="state.password" 
             placeholder="请输入密码"
-            @focus="passwordFocus = true" 
-            @blur="passwordFocus = false" 
+            @focus="state.passwordFocus = true" 
+            @blur="state.passwordFocus = false" 
           />
           <view class="icon-wrapper">
             <uni-icons type="locked" size="22" color="#a6c0fe"></uni-icons>
@@ -41,15 +41,15 @@
       <view class="remember-wrapper">
         <checkbox-group @change="rememberChange">
           <label class="remember-label">
-            <checkbox :checked="rememberMe" style="transform:scale(0.7)" color="#a6c0fe" />
+            <checkbox :checked="state.rememberMe" style="transform:scale(0.7)" color="#a6c0fe" />
             <text>记住我</text>
           </label>
         </checkbox-group>
         <text class="forget-password" @click="forgotPassword">忘记密码?</text>
       </view>
       
-      <button class="login-button" @click="handleLogin" :disabled="loading" hover-class="button-hover">
-        <text v-if="!loading">登 录</text>
+      <button class="login-button" @click="handleLogin" :disabled="state.loading" hover-class="button-hover">
+        <text v-if="!state.loading">登 录</text>
         <text v-else>登录中...</text>
       </button>
       
@@ -65,100 +65,79 @@
 </template>
 
 <script setup>
-import { ref } from 'vue';
+import { reactive } from 'vue';
+import { useUserStore } from '@/stores/user';
 
-const username = ref('');
-const password = ref('');
-const rememberMe = ref(false);
-const loading = ref(false);
-const usernameFocus = ref(false);
-const passwordFocus = ref(false);
-
-// 模拟API服务
-const api = {
-  login(username, password) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // 模拟成功登录，实际项目中应使用真实API接口
-        if (username && password) {
-          resolve({
-            code: 200,
-            message: '登录成功',
-            data: {
-              token: 'mock_token_' + Date.now(),
-              user: {
-                id: 1,
-                username: username,
-                nickname: '用户' + username
-              }
-            }
-          });
-        } else {
-          reject({
-            code: 400,
-            message: '用户名或密码错误'
-          });
-        }
-      }, 1000);
-    });
-  }
-};
+const userStore = useUserStore();
+const state = reactive({
+  username: '',
+  password: '',
+  rememberMe: false,
+  loading: false,
+  usernameFocus: false,
+  passwordFocus: false
+});
 
 const rememberChange = (e) => {
-  rememberMe.value = e.detail.value.length > 0;
+  state.rememberMe = e.detail.value.length > 0;
 };
 
 const handleLogin = async () => {
-  if (!username.value || !password.value) {
-    uni.showToast({
-      title: '请输入用户名和密码',
-      icon: 'none'
-    });
-    return;
-  }
-  
   try {
-    loading.value = true;
-    uni.showLoading({
-      title: '登录中...'
-    });
-    
-    const res = await api.login(username.value, password.value);
-    
-    // 如果设置了记住我，则保存用户信息到本地存储
-    if (rememberMe.value) {
-      uni.setStorageSync('userInfo', {
-        username: username.value,
-        rememberMe: true
-      });
-    } else {
-      uni.removeStorageSync('userInfo');
+    console.log('开始登录流程')
+    if (!state.username || !state.password) {
+      uni.showToast({
+        title: '请输入用户名和密码',
+        icon: 'none'
+      })
+      return
     }
     
-    // 保存登录凭证
-    uni.setStorageSync('token', res.data.token);
+    console.log('准备调用登录接口，参数:', {
+      username: state.username,
+      password: state.password
+    })
     
-    uni.showToast({
-      title: res.message,
-      icon: 'success'
-    });
+    const res = await userStore.loginAction({
+      username: state.username,
+      password: state.password
+    })
     
-    // 延迟跳转到首页
-    setTimeout(() => {
-      uni.switchTab({
-        url: '/pages/index/index'
-      });
-    }, 1500);
+    console.log('登录接口返回:', res)
+    
+    // 检查返回数据
+    if (!res) {
+      console.error('登录返回数据为空')
+      uni.showToast({
+        title: '登录失败：返回数据为空',
+        icon: 'none'
+      })
+      return
+    }
+    
+    console.log('登录成功，准备跳转')
+    // 使用 switchTab 跳转到首页
+    uni.switchTab({
+      url: '/pages/index/index',
+      success: () => {
+        console.log('跳转成功')
+      },
+      fail: (err) => {
+        console.error('跳转失败:', err)
+        uni.showToast({
+          title: '跳转失败：' + (err.errMsg || '未知错误'),
+          icon: 'none'
+        })
+      }
+    })
   } catch (error) {
+    console.error('登录过程出错:', error)
     uni.showToast({
-      title: error.message || '登录失败，请重试',
+      title: error.message || '登录失败，请稍后重试',
       icon: 'none'
-    });
-  } finally {
-    uni.hideLoading();
-    loading.value = false;
+    })
   }
-};
+}
 
 const forgotPassword = () => {
   uni.showToast({
@@ -177,8 +156,8 @@ const goToRegister = () => {
 const checkRememberedAccount = () => {
   const userInfo = uni.getStorageSync('userInfo');
   if (userInfo && userInfo.rememberMe) {
-    username.value = userInfo.username;
-    rememberMe.value = true;
+    state.username = userInfo.username;
+    state.rememberMe = true;
   }
 };
 
