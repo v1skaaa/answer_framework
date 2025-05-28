@@ -317,7 +317,7 @@ const startExam = () => {
   // TODO: Implement开始答题的逻辑，比如跳转到答题界面，并传递试卷ID等
 
   // 使用 URL 参数传递 paper.id 到答题页面
-  const answeringUrl = `/pages/exam/answering/index?paperId=${paper.value.id}`;
+  const answeringUrl = `/pages/exam/answering/index?sourceId=${paper.value.id}`;
   console.log('Navigating to answering page with URL:', answeringUrl);
 
   uni.navigateTo({

@@ -42,30 +42,37 @@
                 >
               <!-- Here display question text and images -->
                 <view class="question-main">
-                    <view class="question-text">{{ currentQuestion.text }}</view>
+                    <!-- Render question stem with LaTeX component -->
+                    <view>
+                        <text>Raw Formula (Stem): {{ currentQuestion.text }}</text>
+                        <LaTeX :formula="currentQuestion.text" :displayMode="currentQuestion.stemDisplayMode"></LaTeX>
+                    </view>
                     <image v-if="currentQuestion.image" :src="currentQuestion.image" mode="widthFix" class="question-image"></image>
 
                     <!-- 答案区域 -->
                     <view class="answer-area">
-                        <block v-if="currentQuestion.type === 'choice'">
+                        <template v-if="currentQuestion && currentQuestion.options && currentQuestion.options.length > 0">
                             <view 
                                 class="choice-item" 
                                 v-for="(option, index) in currentQuestion.options" 
                                 :key="index"
                                 @click="selectOption(option.value)"
-                                :class="{'selected': currentQuestion.selectedAnswer === option.value}"
+                                :class="{'selected': currentQuestion.selectedAnswers && currentQuestion.selectedAnswers.includes(option.value)}"
                                 >
                                 <text class="option-label">{{ option.label }}</text>
-                                <text class="option-text">{{ option.text }}</text>
+                                 <!-- Render option text with LaTeX component -->
+                                <view>
+                                    <text>Raw Formula (Option {{ option.label }}): {{ option.text }}</text>
+                                    <LaTeX :formula="option.text" :displayMode="option.displayMode"></LaTeX>
+                                </view>
                             </view>
-                        </block>
-                        <block v-else>
-                            <!-- 填空题和解答题提示 -->
-                            <view class="unsupported-tip">
-                                <text>本题暂不支持在线作答</text>
-                                <text>可在交卷后核对答案并查看解析</text>
-                            </view>
-                        </block>
+                        </template>
+                         <template v-else>
+                              <!-- 如果没有选项数据，可以显示一个提示 -->
+                             <view class="unsupported-tip">
+                                 <text>本题暂无选项数据或类型不支持</text>
+                             </view>
+                         </template>
                     </view>
                 </view>
             </view>
@@ -81,30 +88,37 @@
             :animation="animationData"
             >
             <view class="question-main">
-                <view class="question-text">{{ currentQuestion.text }}</view>
+                 <!-- Render question stem with LaTeX component -->
+                <view>
+                    <text>Raw Formula (Stem): {{ currentQuestion.text }}</text>
+                    <LaTeX :formula="currentQuestion.text" :displayMode="currentQuestion.stemDisplayMode"></LaTeX>
+                </view>
                 <image v-if="currentQuestion.image" :src="currentQuestion.image" mode="widthFix" class="question-image"></image>
 
                 <!-- 答案区域 -->
                 <view class="answer-area">
-                    <block v-if="currentQuestion.type === 'choice'">
+                    <template v-if="currentQuestion && currentQuestion.options && currentQuestion.options.length > 0">
                         <view 
                             class="choice-item" 
                             v-for="(option, index) in currentQuestion.options" 
                             :key="index"
                             @click="selectOption(option.value)"
-                            :class="{'selected': currentQuestion.selectedAnswer === option.value}"
+                            :class="{'selected': currentQuestion.selectedAnswers && currentQuestion.selectedAnswers.includes(option.value)}"
                             >
                             <text class="option-label">{{ option.label }}</text>
-                            <text class="option-text">{{ option.text }}</text>
+                             <!-- Render option text with LaTeX component -->
+                            <view>
+                                <text>Raw Formula (Option {{ option.label }}): {{ option.text }}</text>
+                                <LaTeX :formula="option.text" :displayMode="option.displayMode"></LaTeX>
+                            </view>
                         </view>
-                    </block>
-                    <block v-else>
-                        <!-- 填空题和解答题提示 -->
-                        <view class="unsupported-tip">
-                            <text>本题暂不支持在线作答</text>
-                            <text>可在交卷后核对答案并查看解析</text>
-                        </view>
-                    </block>
+                    </template>
+                     <template v-else>
+                          <!-- 如果没有选项数据，可以显示一个提示 -->
+                         <view class="unsupported-tip">
+                             <text>本题暂无选项数据或类型不支持</text>
+                         </view>
+                     </template>
                 </view>
             </view>
         </view>
@@ -145,6 +159,9 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 // uni-icons will be automatically imported via easycom
+import { onLoad } from '@dcloudio/uni-app';
+import { getQuestionList } from '@/api/exam'; // Import the new API function
+import LaTeX from '@/components/LaTeX.vue'; // Import the LaTeX component
 
 // Declare optionClickedRecently ref to prevent ReferenceError
 const optionClickedRecently = ref(false);
@@ -211,7 +228,14 @@ const questionTypes = computed(() => {
         }
         types[q.type].count++;
         // 为每个题目项添加 number, index 和 answered 属性
-        types[q.type].questions.push({ number: q.number, index: q.index, answered: !!q.selectedAnswer }); // 使用 !! 将 selectedAnswer 转换为布尔值判断是否已作答
+        // 根据题目类型判断是否已作答
+        let answeredStatus = false;
+        if (q.type === 'choice') {
+            answeredStatus = !!(q.selectedAnswers && q.selectedAnswers.length);
+        } else {
+            answeredStatus = !!q.selectedAnswer;
+        }
+        types[q.type].questions.push({ number: q.number, index: q.index, answered: answeredStatus });
     });
     // 将对象转换为数组，并按照选择、填空、解答的顺序排序
     const orderedTypes = [];
@@ -305,36 +329,104 @@ const runMPAnimation = (direction, callback) => {
     // #endif
 };
 
+// Helper function to extract LaTeX formula and determine display mode
+const extractAndCleanFormula = (text) => {
+  if (!text || typeof text !== 'string') {
+    return { formula: '', displayMode: false };
+  }
+
+  let formula = text;
+  let displayMode = false;
+
+  // Check for $$...$$ delimiters (display mode)
+  const displayMatch = text.match(/^\$\$(.*?)\$\$$/);
+  if (displayMatch && displayMatch[1]) {
+    formula = displayMatch[1].trim();
+    displayMode = true;
+  } else {
+    // Check for $...$ delimiters (inline mode)
+    const inlineMatch = text.match(/^\$(.*?)\$$/);
+     if (inlineMatch && inlineMatch[1]) {
+       formula = inlineMatch[1].trim();
+       displayMode = false;
+     } else {
+       // If no delimiters, assume it's not a formula or handle as plain text
+       // For now, just use the original text if no delimiters found
+       formula = text.trim();
+       displayMode = false;
+     }
+  }
+
+   // Basic cleaning: replace \r\n with space if they are within formulas (often from databases)
+   // This might need more sophisticated handling depending on the data source
+   formula = formula.replace(/[\r\n]+/g, ' ');
+
+  return { formula, displayMode };
+};
 
 // 模拟数据填充 (替代接口请求)
-const loadMockData = () => {
-  paperTitle.value = '2023年模拟高考数学卷';
-  // 增加更多模拟数据，按照高考数学卷规范顺序排列
-  questions.value = [
-    // 选择题 1-9 (共9题)
-    { id: 1, number: 1, type: 'choice', text: '题目文本1：这是一道选择题。', options: [{label: 'A', text: '选项A', value: 'A'}, {label: 'B', text: '选项B', value: 'B'}, {label: 'C', text: '选项C', value: 'C'}, {label: 'D', text: '选项D', value: 'D'}], selectedAnswer: null, index: 0 },
-    { id: 2, number: 2, type: 'choice', text: '题目文本2：这是一道选择题，已作答。', options: [{label: 'A', text: '选项A', value: 'A'}, {label: 'B', text: '选项B', value: 'B'}, {label: 'C', text: '选项C', value: 'C'}, {label: 'D', text: '选项D', value: 'D'}], selectedAnswer: 'A', index: 1 },
-    { id: 3, number: 3, type: 'choice', text: '题目文本3：这是一道选择题。', options: [{label: 'A', text: '选项A', value: 'A'}, {label: 'B', text: '选项B', value: 'B'}, {label: 'C', text: '选项C', value: 'C'}, {label: 'D', text: '选项D', value: 'D'}], selectedAnswer: null, index: 2 },
-    { id: 4, number: 4, type: 'choice', text: '题目文本4：这是一道选择题。', options: [{label: 'A', text: '选项A', value: 'A'}, {label: 'B', text: '选项B', value: 'B'}, {label: 'C', text: '选项C', value: 'C'}, {label: 'D', text: '选项D', value: 'D'}], selectedAnswer: null, index: 3 },
-    { id: 5, number: 5, type: 'choice', text: '题目文本5：这是一道选择题。', options: [{label: 'A', text: '选项A', value: 'A'}, {label: 'B', text: '选项B', value: 'B'}, {label: 'C', text: '选项C', value: 'C'}, {label: 'D', text: '选项D', value: 'D'}], selectedAnswer: null, index: 4 },
-    { id: 6, number: 6, type: 'choice', text: '题目文本6：这是一道选择题。', options: [{label: 'A', text: '选项A', value: 'A'}, {label: 'B', text: '选项B', value: 'B'}, {label: 'C', text: '选项C', value: 'C'}, {label: 'D', text: '选项D', value: 'D'}], selectedAnswer: null, index: 5 },
-    { id: 7, number: 7, type: 'choice', text: '题目文本7：这是一道选择题。', options: [{label: 'A', text: '选项A', value: 'A'}, {label: 'B', text: '选项B', value: 'B'}, {label: 'C', text: '选项C', value: 'C'}, {label: 'D', text: '选项D', value: 'D'}], selectedAnswer: null, index: 6 },
-    { id: 8, number: 8, type: 'choice', text: '题目文本8：这是一道选择题。', options: [{label: 'A', text: '选项A', value: 'A'}, {label: 'B', text: '选项B', value: 'B'}, {label: 'C', text: '选项C', value: 'C'}, {label: 'D', text: '选项D', value: 'D'}], selectedAnswer: null, index: 7 },
-    { id: 9, number: 9, type: 'choice', text: '题目文本9：这是一道选择题。', options: [{label: 'A', text: '选项A', value: 'A'}, {label: 'B', text: '选项B', value: 'B'}, {label: 'C', text: '选项C', value: 'C'}, {label: 'D', text: '选项D', value: 'D'}], selectedAnswer: null, index: 8 },
-    // 填空题 10-15 (共6题)
-    { id: 10, number: 10, type: 'fill', text: '题目文本10：这是一道填空题。' , selectedAnswer: null, index: 9 },
-    { id: 11, number: 11, type: 'fill', text: '题目文本11：这是一道填空题。' , selectedAnswer: null, index: 10 },
-    { id: 12, number: 12, type: 'fill', text: '题目文本12：这是一道填空题。' , selectedAnswer: null, index: 11 },
-    { id: 13, number: 13, type: 'fill', text: '题目文本13：这是一道填空题。' , selectedAnswer: null, index: 12 },
-    { id: 14, number: 14, type: 'fill', text: '题目文本14：这是一道填空题。' , selectedAnswer: null, index: 13 },
-    { id: 15, number: 15, type: 'fill', text: '题目文本15：这是一道填空题。' , selectedAnswer: null, index: 14 },
-    // 解答题 16-20 (共5题)
-    { id: 16, number: 16, type: 'text', text: '题目文本16：这是一道解答题。' , selectedAnswer: null, index: 15 },
-    { id: 17, number: 17, type: 'text', text: '题目文本17：这是一道解答题。' , selectedAnswer: null, index: 16 },
-    { id: 18, number: 18, type: 'text', text: '题目文本18：这是一道解答题。' , selectedAnswer: null, index: 17 },
-    { id: 19, number: 19, type: 'text', text: '题目文本19：这是一道解答题。' , selectedAnswer: null, index: 18 },
-    { id: 20, number: 20, type: 'text', text: '题目文本20：这是一道解答题。' , selectedAnswer: null, index: 19 }
-  ];
+const loadMockData = async (sourceId) => {
+  console.log('loadMockData called with sourceId:', sourceId);
+  if (!sourceId) {
+    console.warn('No sourceId provided for loading questions.');
+    // 可以清空questions或者显示加载失败状态
+    questions.value = [];
+    return;
+  }
+
+  try {
+    const res = await getQuestionList(sourceId);
+    console.log('getQuestionList API response:', res);
+    if (res.flag === '1' && res.result) {
+      // Map the API response to the desired questions structure
+      questions.value = res.result.map((item, index) => ({
+        id: item.qcId, // Use qcId as question ID
+        number: item.queSort, // Use queSort as question number
+        type: 'choice', // Assuming all questions are choice for now based on sample data
+        text: item.queStem ? extractAndCleanFormula(item.queStem).formula : '', // Process question stem
+        // Add a property to indicate display mode for the stem
+        stemDisplayMode: item.queStem ? extractAndCleanFormula(item.queStem).displayMode : false,
+        options: [
+          { label: 'A', text: item.optionA ? extractAndCleanFormula(item.optionA).formula : '', value: 'A', displayMode: item.optionA ? extractAndCleanFormula(item.optionA).displayMode : false },
+          { label: 'B', text: item.optionB ? extractAndCleanFormula(item.optionB).formula : '', value: 'B', displayMode: item.optionB ? extractAndCleanFormula(item.optionB).displayMode : false },
+          { label: 'C', text: item.optionC ? extractAndCleanFormula(item.optionC).formula : '', value: 'C', displayMode: item.optionC ? extractAndCleanFormula(item.optionC).displayMode : false },
+          { label: 'D', text: item.optionD ? extractAndCleanFormula(item.optionD).formula : '', value: 'D', displayMode: item.optionD ? extractAndCleanFormula(item.optionD).displayMode : false },
+          // Add other options if they exist (e.g., optionE, optionF, etc.)
+        ], // Removed filter
+        selectedAnswers: [], // Initialize as empty array for multi-select
+        index: index // Maintain original index for navigation
+      }));
+      paperTitle.value = '试卷名称'; // You might want to get paper title from another API or pass it from intro
+      console.log('Successfully loaded and mapped questions:', questions.value);
+      // Add log to inspect options of the first question
+      if (questions.value.length > 0) {
+        console.log('Options of the first question (in loadMockData):', questions.value[0].options);
+      }
+      console.log('Current contentHeaderHeight after loading data:', contentHeaderHeight.value);
+
+      // Use nextTick to check options after DOM update
+      nextTick(() => {
+        if (currentQuestion.value && currentQuestion.value.options) {
+          console.log('Options of current question (in nextTick):', currentQuestion.value.options);
+        }
+      });
+
+    } else {
+      console.error('Failed to load questions:', res.msg);
+       uni.showToast({
+        title: res.msg || '获取题目失败',
+        icon: 'none'
+      });
+       questions.value = []; // Clear questions on failure
+    }
+  } catch (error) {
+    console.error('Error fetching questions:', error);
+     uni.showToast({
+      title: '获取题目异常',
+      icon: 'none'
+    });
+     questions.value = []; // Clear questions on error
+  }
 };
 
 // 题目切换
@@ -512,8 +604,26 @@ const selectOption = (value) => {
     // 找到当前题目对象并更新其 selectedAnswer 属性
     const currentQ = questions.value[currentQuestionIndex.value];
     if (currentQ) {
-        currentQ.selectedAnswer = value;
-        console.log('已选择答案:', value);
+        if (currentQ.type === 'choice') {
+            // For multiple choice, toggle the selection
+            const index = currentQ.selectedAnswers.indexOf(value);
+            if (index > -1) {
+                // Option already selected, remove it
+                currentQ.selectedAnswers.splice(index, 1);
+                console.log('取消选择答案:', value);
+            } else {
+                // Option not selected, add it
+                currentQ.selectedAnswers.push(value);
+                console.log('已选择答案:', value);
+            }
+             // Keep selectedAnswers sorted for consistent comparison if needed later
+             currentQ.selectedAnswers.sort();
+        } else {
+             // For single choice (if any), just set the answer
+             // This part might not be needed if all 'choice' types are multi-select
+             currentQ.selectedAnswer = value;
+             console.log('已选择答案:', value);
+        }
     }
 
     // 设置点击标志
@@ -534,7 +644,7 @@ const submitExam = () => {
   // 收集用户答案和题目信息
   const userAnswer = questions.value.map(q => ({
       id: q.id,
-      selectedAnswer: q.selectedAnswer
+      selectedAnswers: q.selectedAnswers
   }));
   const examData = {
       userAnswer: userAnswer,
@@ -612,6 +722,25 @@ onUnmounted(() => {
   stopTimer(); // 页面卸载时停止倒计时
 });
 
+onLoad((options) => {
+  console.log('answering: Page onLoad', options);
+  // 获取从 intro 页面传递过来的 sourceId
+  if (options && options.sourceId) {
+    const sourceId = options.sourceId;
+    console.log('answering: Received sourceId from options:', sourceId);
+    // 调用 loadMockData (现在是实际加载数据) 来获取题目
+    loadMockData(sourceId);
+  } else {
+    console.warn('answering: No sourceId received from options.');
+    // 处理没有 sourceId 的情况，例如显示错误信息或返回上一页
+     uni.showToast({
+      title: '未获取到试卷ID',
+      icon: 'none'
+    });
+     questions.value = []; // Clear questions if no sourceId
+  }
+});
+
 </script>
 
 <style lang="scss">
@@ -669,12 +798,12 @@ onUnmounted(() => {
 
 /* 题目内容区域容器 */
 .question-content-wrapper {
-    flex: 1;
+    flex: 1; /* Restore flex */
     margin-top: 0;
     padding-bottom: 20rpx;
     
-    position: relative;
-    overflow: hidden;
+    position: relative; /* Restore position */
+    overflow: hidden; /* Restore overflow */
      min-height: 0;
      display: flex;
      flex-direction: column;
@@ -718,15 +847,18 @@ onUnmounted(() => {
 
 /* 题目内容区域（进行过渡动画的元素）*/
 .question-content {
-    position: absolute;
+    position: absolute; /* Restore position */
     left: 0;
     right: 0;
     bottom: 0;
-    /* top is set dynamically via :style */
-    overflow-y: auto;
+    top: v-bind(contentHeaderHeight + 'px'); /* Keep dynamic top for positioning below header */
+    overflow-y: auto; /* Restore overflow */
     width: 100%;
-    height: calc(100% - v-bind(contentHeaderHeight + 'px'));
-    will-change: transform;
+    height: calc(100% - v-bind(contentHeaderHeight + 'px')); /* Restore dynamic height */
+    /*min-height: 500rpx;*/ /* Remove temporary fixed height */
+    will-change: transform; /* Restore will-change */
+    // Remove temporary padding
+    padding-top: 0;
 }
 
 .question-main {
