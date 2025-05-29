@@ -83,6 +83,10 @@ import { ref, computed, onMounted, nextTick } from 'vue'; // Import nextTick
 import { onLoad } from '@dcloudio/uni-app'; // Import onLoad
 import { getPaperSourceDetail } from '@/api/test';
 // uni-icons will be automatically imported via easycom
+import { useExamStore } from '@/stores/exam';
+
+// 获取考试 store 实例
+const examStore = useExamStore();
 
 // 获取胶囊按钮位置信息和状态栏高度
 const menuButtonHeight = ref(0);
@@ -213,6 +217,8 @@ const fetchPaperDetail = async (sourceId) => {
     if (res.flag === '1' && res.result) {
       // Only update title and id from API, keep other mock data if needed
       paper.value.title = res.result.sourceName; // 更新试卷名称
+      // Update the paperTitle in the exam store
+      examStore.paperTitle = res.result.sourceName;
       paper.value.id = res.result.sourceId; // 存储试卷ID
        // Keep existing mock data for other fields, or update if API provides them
        // paper.value.difficulty = res.result.difficulty; // Uncomment if API provides
@@ -311,28 +317,32 @@ const goBack = () => {
   uni.navigateBack();
 };
 
-// 开始答题按钮点击事件（待实现）
+// 开始答题按钮点击事件
 const startExam = () => {
-  console.log('开始答题 clicked');
-  // TODO: Implement开始答题的逻辑，比如跳转到答题界面，并传递试卷ID等
-
-  // 使用 URL 参数传递 paper.id 到答题页面
-  const answeringUrl = `/pages/exam/answering/index?sourceId=${paper.value.id}`;
-  console.log('Navigating to answering page with URL:', answeringUrl);
-
-  uni.navigateTo({
-    url: answeringUrl,
-    success: function (res) {
-      console.log('Navigation success to answering page');
-    },
-     fail: function(err) {
-      console.error('Navigation to answering page failed:', err);
-       uni.showToast({
-        title: '跳转答题页失败',
-        icon: 'none'
-      });
-    }
-  });
+  console.log('startExam clicked');
+  if (paper.value && paper.value.id) {
+    // 使用 uni.navigateTo 跳转到答题页面
+    // 将 paperId (sourceId) 作为参数传递
+    uni.navigateTo({
+      url: `/pages/exam/answering/index?sourceId=${paper.value.id}`, // Pass sourceId only, paperTitle is in store
+      success: () => {
+        console.log('Navigated to answering page');
+      },
+      fail: (err) => {
+        console.error('Navigation failed:', err);
+         uni.showToast({
+          title: '跳转答题页失败',
+          icon: 'none'
+        });
+      }
+    });
+  } else {
+    console.warn('Cannot start exam: paper ID is missing');
+     uni.showToast({
+      title: '试卷ID缺失',
+      icon: 'none'
+    });
+  }
 };
 
 // TODO: 从页面参数获取试卷信息，并更新 paper.value
