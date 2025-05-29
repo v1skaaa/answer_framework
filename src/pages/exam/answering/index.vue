@@ -47,7 +47,7 @@
                          <!-- Iterate through text segments -->
                          <template v-for="(segment, index) in currentQuestion.textSegments" :key="index">
                              <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" :scale="0.8"></MathJax>
+                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                          </template>
                     </view>
                     <image v-if="currentQuestion.image" :src="currentQuestion.image" mode="widthFix" class="question-image"></image>
@@ -68,7 +68,7 @@
                                     <!-- Iterate through option text segments -->
                                      <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
                                          <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" :scale="0.6"></MathJax>
+                                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                                      </template>
                                 </view>
                             </view>
@@ -99,7 +99,7 @@
                      <!-- Iterate through text segments -->
                      <template v-for="(segment, index) in currentQuestion.textSegments" :key="index">
                          <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" :scale="0.8"></MathJax>
+                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                      </template>
                 </view>
                 <image v-if="currentQuestion.image" :src="currentQuestion.image" mode="widthFix" class="question-image"></image>
@@ -120,7 +120,7 @@
                                  <!-- Iterate through option text segments -->
                                  <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
                                      <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                     <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" :scale="0.6"></MathJax>
+                                     <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                                  </template>
                             </view>
                         </view>
