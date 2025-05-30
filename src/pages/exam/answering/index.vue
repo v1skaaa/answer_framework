@@ -49,13 +49,18 @@
                          <!-- Iterate through text segments -->
                          <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
                              <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+<<<<<<< HEAD
                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" ></MathJax>
+=======
+                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+>>>>>>> 14c44b52f3d353d0170c154e784ea08df547776b
                          </template>
                     </view>
                     <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image"></image>
 
                     <!-- 答案区域 -->
                     <view class="answer-area">
+<<<<<<< HEAD
                         <template v-if="examStore.currentQuestion.type === 'choice'">
                             <template v-if="examStore.currentQuestion && examStore.currentQuestion.options && examStore.currentQuestion.options.length > 0">
                                 <view 
@@ -74,6 +79,24 @@
                                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                                          </template>
                                     </view>
+=======
+                        <template v-if="currentQuestion && currentQuestion.options && currentQuestion.options.length > 0">
+                            <view 
+                                class="choice-item" 
+                                v-for="(option, optionIndex) in currentQuestion.options" 
+                                :key="optionIndex"
+                                @click="selectOption(option.value)"
+                                :class="{'selected': currentQuestion.selectedAnswers && currentQuestion.selectedAnswers.includes(option.value)}"
+                                >
+                                <text class="option-label">{{ option.label }}</text>
+                                 <!-- Render option text with MathJax component -->
+                                <view class="option-text-content">
+                                    <!-- Iterate through option text segments -->
+                                     <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
+                                         <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                     </template>
+>>>>>>> 14c44b52f3d353d0170c154e784ea08df547776b
                                 </view>
                             </template>
                              <template v-else>
@@ -117,6 +140,7 @@
 
                 <!-- 答案区域 -->
                 <view class="answer-area">
+<<<<<<< HEAD
                     <template v-if="examStore.currentQuestion.type === 'choice'">
                         <template v-if="examStore.currentQuestion && examStore.currentQuestion.options && examStore.currentQuestion.options.length > 0">
                             <view 
@@ -135,6 +159,24 @@
                                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                                      </template>
                                 </view>
+=======
+                    <template v-if="currentQuestion && currentQuestion.options && currentQuestion.options.length > 0">
+                        <view 
+                            class="choice-item" 
+                            v-for="(option, optionIndex) in currentQuestion.options" 
+                            :key="optionIndex"
+                            @click="selectOption(option.value)"
+                            :class="{'selected': currentQuestion.selectedAnswers && currentQuestion.selectedAnswers.includes(option.value)}"
+                            >
+                            <text class="option-label">{{ option.label }}</text>
+                             <!-- Render option text with MathJax component -->
+                            <view class="option-text-content">
+                                 <!-- Iterate through option text segments -->
+                                 <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
+                                     <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                     <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                 </template>
+>>>>>>> 14c44b52f3d353d0170c154e784ea08df547776b
                             </view>
                         </template>
                          <template v-else>

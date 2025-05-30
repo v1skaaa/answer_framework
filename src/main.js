@@ -10,20 +10,31 @@ import uniIcons from '@dcloudio/uni-ui/lib/uni-icons/uni-icons.vue'
 const configureMathJax = () => {
     // #ifdef H5
     if (typeof window !== 'undefined') {
-        // 配置 MathJax
         window.MathJax = {
             tex: {
                 inlineMath: [['$', '$'], ['\\(', '\\)']],
                 displayMath: [['$$', '$$'], ['\\[', '\\]']],
                 processEscapes: true,
                 processEnvironments: true,
-                packages: {'[+]': ['html']},
-                tags: 'ams'
+                packages: {
+                    '[+]': ['ams', 'boldsymbol', 'color', 'physics', 'mhchem']
+                },
+                tags: 'ams',
+                macros: {
+                    boldsymbol: ['\\mathbf{#1}', 1],
+                    vec: ['\\mathbf{#1}', 1],
+                    degree: '^\\circ'
+                }
             },
             options: {
                 skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre'],
                 ignoreHtmlClass: 'tex2jax_ignore',
-                processHtmlClass: 'tex2jax_process'
+                processHtmlClass: 'tex2jax_process',
+                renderActions: {
+                    find: [10, function (doc) {
+                        doc.findMath();
+                    }]
+                }
             },
             startup: {
                 ready() {
@@ -32,19 +43,21 @@ const configureMathJax = () => {
                         window.MathJax.startup.defaultReady();
                     }
                     window.mathJaxReady = true;
-                    // 发送全局事件
                     window.dispatchEvent(new CustomEvent('mathjax-loaded'));
                     console.log('MathJax 加载完成');
                 }
             },
             svg: {
                 fontCache: 'global'
+            },
+            loader: {
+                load: ['[tex]/ams', '[tex]/boldsymbol', '[tex]/color', '[tex]/physics', '[tex]/mhchem']
             }
         };
         
         // 动态加载 MathJax
         const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+        script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
         script.async = true;
         script.id = 'MathJax-script';
         document.head.appendChild(script);

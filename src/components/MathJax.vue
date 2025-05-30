@@ -8,7 +8,7 @@
     >
     </view>
     <view v-if="error" class="error-text">{{ error }}</view>
-    <view v-if="loading" class="loading-text">渲染中...</view>
+    <view v-if="loading" class="loading-text">加载中...</view>
   </view>
 </template>
 
@@ -74,9 +74,9 @@ export default {
       }
     }
     
-    console.log('原始公式:', this.formula);
-    console.log('显示模式:', this.displayMode);
-    console.log('处理后公式:', processed);
+    // console.log('原始公式:', this.formula);
+    // console.log('显示模式:', this.displayMode);
+    // console.log('处理后公式:', processed);
     
     return processed;
   }
@@ -85,7 +85,7 @@ export default {
     formula: {
       handler(newVal, oldVal) {
         if (newVal !== oldVal) {
-          console.log('公式变化:', oldVal, '->', newVal);
+          // console.log('公式变化:', oldVal, '->', newVal);
           this.debouncedRender();
         }
       },
