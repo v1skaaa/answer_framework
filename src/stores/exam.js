@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getQuestionList } from '@/api/exam'
+import { submitExamComplete } from '@/api/exam'
 
 // 解析数学公式文本的辅助函数
 const parseMathText = (text) => {
@@ -135,10 +136,18 @@ export const useExamStore = defineStore('exam', () => {
   const timeRemaining = ref(3600)
   const timer = ref(null)
   const showQuestionCard = ref(false)
+  const uploadedImages = ref({}) // 存储每个题目的上传图片
+  const paperId = ref(null) // 新增存储试卷ID的状态
 
   // 计算属性
   const totalQuestions = computed(() => questions.value.length)
   const currentQuestion = computed(() => questions.value[currentQuestionIndex.value] || {})
+
+  // 获取当前题目的上传图片
+  const currentQuestionImages = computed(() => {
+    const questionId = currentQuestion.value.id
+    return uploadedImages.value[questionId] || []
+  })
 
   // 答题卡数据结构
   const questionTypes = computed(() => {
@@ -158,6 +167,9 @@ export const useExamStore = defineStore('exam', () => {
       let answeredStatus = false
       if (q.type === 'choice') {
         answeredStatus = !!(q.selectedAnswers && q.selectedAnswers.length)
+      } else if (q.type === 'fill' || q.type === 'application') {
+        // 检查是否有答案或上传的图片
+        answeredStatus = !!(q.selectedAnswer || (uploadedImages.value[q.id] && uploadedImages.value[q.id].length > 0))
       } else {
         answeredStatus = !!q.selectedAnswer
       }
@@ -188,15 +200,25 @@ export const useExamStore = defineStore('exam', () => {
 
   // 方法
   const loadQuestions = async (sourceId) => {
+    console.log('loadQuestions called with sourceId:', sourceId);
     if (!sourceId) {
       console.warn('No sourceId provided for loading questions.')
       questions.value = []
+      paperId.value = null; // Clear paperId
       return
     }
 
+    // 直接将传入的 sourceId 设置为 paperId
+    paperId.value = sourceId;
+    console.log('Setting paperId from sourceId parameter:', paperId.value);
+
     try {
+      console.log('Calling getQuestionList API...');
       const res = await getQuestionList(sourceId)
+      console.log('getQuestionList API response:', res);
       if (res.flag === '1' && res.result) {
+        console.log('API call successful, res.result:', res.result);
+
         const allQuestions = [];
 
         // Process choice questions
@@ -206,6 +228,7 @@ export const useExamStore = defineStore('exam', () => {
               id: item.qcId,
               number: item.queSort,
               type: 'choice',
+              choiceType: item.choiceType,
               textSegments: item.queStem ? parseMathText(item.queStem) : [],
               options: [
                 { label: 'A', segments: item.optionA ? parseMathText(item.optionA) : [], value: 'A' },
@@ -289,13 +312,20 @@ export const useExamStore = defineStore('exam', () => {
     const currentQ = questions.value[currentQuestionIndex.value]
     if (currentQ) {
       if (currentQ.type === 'choice') {
-        const index = currentQ.selectedAnswers.indexOf(value)
-        if (index > -1) {
-          currentQ.selectedAnswers.splice(index, 1)
-        } else {
-          currentQ.selectedAnswers.push(value)
+        // 根据 choiceType 判断是单选还是多选
+        if (currentQ.choiceType === 1) {
+          // 单选题：直接设置选中的答案
+          currentQ.selectedAnswers = [value]
+        } else if (currentQ.choiceType === 2) {
+          // 多选题：切换选中状态
+          const index = currentQ.selectedAnswers.indexOf(value)
+          if (index > -1) {
+            currentQ.selectedAnswers.splice(index, 1)
+          } else {
+            currentQ.selectedAnswers.push(value)
+          }
+          currentQ.selectedAnswers.sort()
         }
-        currentQ.selectedAnswers.sort()
         console.log(`Question ${currentQ.number}: Selected option ${value}. Current selections:`, currentQ.selectedAnswers)
       } else {
         currentQ.selectedAnswer = value
@@ -355,44 +385,280 @@ export const useExamStore = defineStore('exam', () => {
     }
   }
 
-  const submitExam = () => {
+  const submitExam = async () => {
     stopTimer()
-    console.log('提交考试')
-    // TODO: Implement actual submission logic
-    // Access questions.value to get all questions and user's answers
-    console.log('所有题目及答案:', questions.value.map(q => ({
-      id: q.id,
-      number: q.number,
-      type: q.type,
-      selected: q.type === 'choice' ? q.selectedAnswers : q.selectedAnswer,
-      correctAnswer: q.correctAnswer // Note: correctAnswer is not in the provided API response, you might need to adjust or fetch separately if needed for grading.
-    })));
+    console.log('准备提交考试')
+    
+    if (!paperId.value) {
+      console.error('无法提交考试：缺少 paperId');
+      uni.showToast({
+        title: '无法提交考试：缺少试卷ID',
+        icon: 'none'
+      });
+      return;
+    }
 
-    // Example: Navigate to result page
-    // uni.redirectTo({
-    //   url: '/pages/exam/result/index'
-    // });
+    // 构建请求体
+    const submissionData = {
+      paperId: paperId.value,
+      studentId: "1", // 暂时硬编码 studentId
+      choiceAnswerDetails: [],
+      blankAnswerDetails: [],
+      applicationAnswerDetails: []
+    };
 
-    uni.showModal({
-      title: '交卷确认',
-      content: '确定要提交试卷吗？',
-      success: (res) => {
-        if (res.confirm) {
-          console.log('用户点击确定');
-          // TODO: Call API to submit answers
-          uni.showToast({
-            title: '交卷成功 (模拟)',
-            icon: 'success'
+    questions.value.forEach(q => {
+      if (q.type === 'choice') {
+        if (q.selectedAnswers && q.selectedAnswers.length > 0) {
+          // 格式化选择题答案，多选逗号分隔
+          const stuAnswer = q.selectedAnswers.join(',');
+          submissionData.choiceAnswerDetails.push({
+            queSort: q.number,
+            stuAnswer: stuAnswer,
+            timeSpent: null // 暂时设置为 null
           });
-           // Example: Navigate to result page after submission
-            uni.redirectTo({
-             url: '/pages/exam/result/index' // Replace with your actual result page path
+        }
+      } else if (q.type === 'fill') {
+        // 处理填空题的图片上传
+        const images = uploadedImages.value[q.id] || [];
+        if (images.length > 0) {
+          images.forEach(image => {
+             submissionData.blankAnswerDetails.push({
+              queSort: q.number,
+              stuAnswer: null, // 暂时设置为 null
+              imageUrls: null, // 暂时设置为 null
+              imageDataBase64: image.base64, // 使用存储的base64编码
+              timeSpent: null // 暂时设置为 null
             });
-        } else if (res.cancel) {
-          console.log('用户点击取消');
+          });
+        } else if (q.selectedAnswer) {
+             // 如果有文本答案，处理文本答案 (如果填空题支持文本输入)
+             // 注意：根据你的需求，填空题目前主要支持图片上传，
+             // 如果有文本输入的需求，需要在这里添加处理逻辑
+             console.warn(`填空题 ${q.number} 包含非图片答案，当前未实现文本答案提交.`);
+             // submissionData.blankAnswerDetails.push({
+             //  queSort: q.number,
+             //  stuAnswer: q.selectedAnswer, // 如果支持文本答案
+             //  imageUrls: null,
+             //  imageDataBase64: null,
+             //  timeSpent: null
+             // });
+        }
+      } else if (q.type === 'application') {
+        // 处理解答题的图片上传
+         const images = uploadedImages.value[q.id] || [];
+        if (images.length > 0) {
+          images.forEach(image => {
+             submissionData.applicationAnswerDetails.push({
+              queSort: q.number,
+              stuAnswer: null, // 暂时设置为 null
+              imageUrls: null, // 暂时设置为 null
+              imageDataBase664: image.base64, // 使用存储的base64编码
+              timeSpent: null // 暂时设置为 null
+            });
+          });
+        } else if (q.selectedAnswer) {
+             // 如果有文本答案，处理文本答案 (如果解答题支持文本输入)
+             // 注意：根据你的需求，解答题目前主要支持图片上传，
+             // 如果有文本输入的需求，需要在这里添加处理逻辑
+              console.warn(`解答题 ${q.number} 包含非图片答案，当前未实现文本答案提交.`);
+             // submissionData.applicationAnswerDetails.push({
+             //  queSort: q.number,
+             //  stuAnswer: q.selectedAnswer, // 如果支持文本答案
+             //  imageUrls: null,
+             //  imageDataBase64: null,
+             //  timeSpent: null
+             // });
         }
       }
     });
+
+    console.log('提交数据:', submissionData);
+
+    try {
+      const response = await submitExamComplete(submissionData);
+      console.log('提交接口响应:', response);
+      
+      // TODO: 根据提交接口的实际响应进行处理
+      if (response && response.flag === '1') { // 假设 flag === '1' 表示成功
+         uni.showToast({
+            title: response.msg || '交卷成功',
+            icon: 'success'
+          });
+          // 导航到结果页面或其他后续页面
+          uni.redirectTo({
+            url: '/pages/exam/result/index' // 请替换为你的实际结果页路径
+          });
+      } else {
+         // 处理提交失败
+         uni.showModal({
+           title: '提交失败',
+           content: response.msg || '试卷提交失败，请稍后再试。',
+           showCancel: false
+         });
+      }
+
+    } catch (error) {
+      console.error('提交考试异常:', error);
+      uni.showModal({
+        title: '提交失败',
+        content: '试卷提交过程中发生异常，请稍后再试。',
+        showCancel: false
+      });
+    }
+  }
+
+  // 图片上传相关方法
+  const uploadImage = async (tempFilePath) => {
+    try {
+      // 打印图片信息
+      console.log('准备上传的图片信息:', {
+        tempFilePath,
+        fileType: tempFilePath.split('.').pop(), // 获取文件扩展名
+        timestamp: new Date().toISOString()
+      });
+
+      // 获取图片详细信息
+      const imageInfo = await uni.getImageInfo({
+        src: tempFilePath
+      });
+      console.log('图片详细信息:', {
+        width: imageInfo.width,
+        height: imageInfo.height,
+        path: imageInfo.path,
+        type: imageInfo.type,
+        size: imageInfo.size // 注意：某些平台可能不支持获取文件大小
+      });
+
+      // 将图片转换为 base64
+      const base64 = await new Promise((resolve, reject) => {
+        // #ifdef H5
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', tempFilePath, true);
+        xhr.responseType = 'blob';
+        xhr.onload = function() {
+          if (this.status === 200) {
+            const reader = new FileReader();
+            reader.onloadend = function() {
+              // 移除 data:image/jpeg;base64, 前缀
+              const base64Data = reader.result.split(',')[1];
+              resolve(base64Data);
+            };
+            reader.readAsDataURL(this.response);
+          } else {
+            reject(new Error('Failed to load image'));
+          }
+        };
+        xhr.onerror = function() {
+          reject(new Error('Failed to load image'));
+        };
+        xhr.send();
+        // #endif
+
+        // #ifndef H5
+        uni.getFileSystemManager().readFile({
+          filePath: tempFilePath,
+          encoding: 'base64',
+          success: (res) => {
+            resolve(res.data);
+          },
+          fail: (error) => {
+            console.error('读取文件失败:', error);
+            reject(error);
+          }
+        });
+        // #endif
+      });
+
+      // 打印 base64 编码（只显示前100个字符，避免控制台输出过多）
+      console.log('图片 base64 编码(前100个字符):', base64.substring(0, 100) + '...');
+      console.log('base64 完整长度:', base64.length);
+
+      // 这里应该调用实际的上传API
+      // const res = await uploadFile(tempFilePath)
+      // 模拟上传成功
+      const questionId = currentQuestion.value.id
+      if (!uploadedImages.value[questionId]) {
+        uploadedImages.value[questionId] = []
+      }
+      
+      // 添加图片到当前题目的图片列表
+      const imageData = {
+        url: tempFilePath, // 实际项目中应该是上传后的URL
+        tempFilePath: tempFilePath,
+        uploadTime: new Date().toISOString(),
+        imageInfo: imageInfo, // 保存图片信息
+        base64: base64 // 保存 base64 编码
+      };
+      
+      uploadedImages.value[questionId].push(imageData);
+      console.log('当前题目的所有图片:', uploadedImages.value[questionId]);
+
+      // 更新当前题目的状态和答案
+      const currentQ = questions.value[currentQuestionIndex.value];
+      if (currentQ && (currentQ.type === 'fill' || currentQ.type === 'application')) {
+        // 如果题目还没有答案，创建一个新的答案对象
+        if (!currentQ.selectedAnswer) {
+          currentQ.selectedAnswer = {
+            type: 'image',
+            images: []
+          };
+        }
+        // 如果答案不是图片类型，转换为图片类型
+        if (typeof currentQ.selectedAnswer === 'string') {
+          currentQ.selectedAnswer = {
+            type: 'image',
+            images: []
+          };
+        }
+        // 添加图片的 base64 编码到答案中
+        currentQ.selectedAnswer.images.push({
+          base64: base64,
+          uploadTime: new Date().toISOString(),
+          imageInfo: imageInfo
+        });
+        console.log('当前题目的答案:', currentQ.selectedAnswer);
+      }
+
+      return true
+    } catch (error) {
+      console.error('上传图片失败:', error)
+      uni.showToast({
+        title: '上传图片失败',
+        icon: 'none'
+      })
+      return false
+    }
+  }
+
+  const removeImage = (questionId, imageIndex) => {
+    if (uploadedImages.value[questionId]) {
+      uploadedImages.value[questionId].splice(imageIndex, 1)
+      
+      // 更新题目的答案
+      const currentQ = questions.value[currentQuestionIndex.value];
+      if (currentQ && (currentQ.type === 'fill' || currentQ.type === 'application')) {
+        if (currentQ.selectedAnswer && currentQ.selectedAnswer.type === 'image') {
+          currentQ.selectedAnswer.images.splice(imageIndex, 1);
+          // 如果没有图片了，清除答案
+          if (currentQ.selectedAnswer.images.length === 0) {
+            currentQ.selectedAnswer = '';
+          }
+        }
+      }
+    }
+  }
+
+  const clearImages = (questionId) => {
+    if (uploadedImages.value[questionId]) {
+      uploadedImages.value[questionId] = []
+      
+      // 清除题目的答案
+      const currentQ = questions.value[currentQuestionIndex.value];
+      if (currentQ && (currentQ.type === 'fill' || currentQ.type === 'application')) {
+        currentQ.selectedAnswer = '';
+      }
+    }
   }
 
   return {
@@ -403,12 +669,15 @@ export const useExamStore = defineStore('exam', () => {
     timeRemaining,
     timer,
     showQuestionCard,
+    uploadedImages,
+    paperId,
     
     // 计算属性
     totalQuestions,
     currentQuestion,
     questionTypes,
     formattedTime,
+    currentQuestionImages,
     
     // 方法
     loadQuestions,
@@ -420,6 +689,9 @@ export const useExamStore = defineStore('exam', () => {
     toggleQuestionCard,
     startTimer,
     stopTimer,
-    submitExam
+    submitExam,
+    uploadImage,
+    removeImage,
+    clearImages
   }
 }) 

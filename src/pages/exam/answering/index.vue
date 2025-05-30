@@ -85,9 +85,43 @@
                         </template>
 
                         <template v-else-if="examStore.currentQuestion.type === 'fill' || examStore.currentQuestion.type === 'application'">
-                            <!-- 填空题和解答题暂时不支持作答 -->
-                            <view class="unsupported-tip">
-                                <text>本题暂不支持输入作答</text>
+                            <!-- 填空题和解答题的拍照上传功能 -->
+                            <view class="upload-section">
+                                <view class="upload-header">
+                                    <text class="upload-title">拍照上传答案</text>
+                                    <text class="upload-tip">最多上传3张图片</text>
+                                </view>
+                                
+                                <!-- 已上传图片预览 -->
+                                <view class="image-preview-list" v-if="examStore.currentQuestionImages.length > 0">
+                                    <view 
+                                        class="image-preview-item" 
+                                        v-for="(image, index) in examStore.currentQuestionImages" 
+                                        :key="index"
+                                    >
+                                        <image 
+                                            :src="image.url" 
+                                            mode="aspectFill" 
+                                            class="preview-image"
+                                            @click="previewImage(index)"
+                                        ></image>
+                                        <view class="image-actions">
+                                            <view class="delete-btn" @click="deleteImage(index)">
+                                                <uni-icons type="trash" size="20" color="#ff4d4f"></uni-icons>
+                                            </view>
+                                        </view>
+                                    </view>
+                                </view>
+
+                                <!-- 上传按钮 -->
+                                <view 
+                                    class="upload-btn" 
+                                    v-if="examStore.currentQuestionImages.length < 3"
+                                    @click="chooseAndUploadImage"
+                                >
+                                    <uni-icons type="camera" size="24" color="#007aff"></uni-icons>
+                                    <text>拍照上传</text>
+                                </view>
                             </view>
                         </template>
                     </view>
@@ -146,9 +180,43 @@
                     </template>
 
                     <template v-else-if="examStore.currentQuestion.type === 'fill' || examStore.currentQuestion.type === 'application'">
-                        <!-- 填空题和解答题暂时不支持作答 -->
-                        <view class="unsupported-tip">
-                            <text>本题暂不支持输入作答</text>
+                        <!-- 填空题和解答题的拍照上传功能 -->
+                        <view class="upload-section">
+                            <view class="upload-header">
+                                <text class="upload-title">拍照上传答案</text>
+                                <text class="upload-tip">最多上传3张图片</text>
+                            </view>
+                            
+                            <!-- 已上传图片预览 -->
+                            <view class="image-preview-list" v-if="examStore.currentQuestionImages.length > 0">
+                                <view 
+                                    class="image-preview-item" 
+                                    v-for="(image, index) in examStore.currentQuestionImages" 
+                                    :key="index"
+                                >
+                                    <image 
+                                        :src="image.url" 
+                                        mode="aspectFill" 
+                                        class="preview-image"
+                                        @click="previewImage(index)"
+                                    ></image>
+                                    <view class="image-actions">
+                                        <view class="delete-btn" @click="deleteImage(index)">
+                                            <uni-icons type="trash" size="20" color="#ff4d4f"></uni-icons>
+                                        </view>
+                                    </view>
+                                </view>
+                            </view>
+
+                            <!-- 上传按钮 -->
+                            <view 
+                                class="upload-btn" 
+                                v-if="examStore.currentQuestionImages.length < 3"
+                                @click="chooseAndUploadImage"
+                            >
+                                <uni-icons type="camera" size="24" color="#007aff"></uni-icons>
+                                <text>拍照上传</text>
+                            </view>
                         </view>
                     </template>
                 </view>
@@ -448,6 +516,59 @@ const goBack = () => {
   uni.navigateBack();
 };
 
+// 选择并上传图片
+const chooseAndUploadImage = async () => {
+    try {
+        const res = await uni.chooseImage({
+            count: 1,
+            sizeType: ['compressed'],
+            sourceType: ['camera', 'album']
+        });
+
+        if (res.tempFilePaths && res.tempFilePaths.length > 0) {
+            const success = await examStore.uploadImage(res.tempFilePaths[0]);
+            if (success) {
+                uni.showToast({
+                    title: '上传成功',
+                    icon: 'success'
+                });
+            }
+        }
+    } catch (error) {
+        console.error('选择图片失败:', error);
+        uni.showToast({
+            title: '选择图片失败',
+            icon: 'none'
+        });
+    }
+};
+
+// 预览图片
+const previewImage = (index) => {
+    const images = examStore.currentQuestionImages.map(img => img.url);
+    uni.previewImage({
+        urls: images,
+        current: index
+    });
+};
+
+// 删除图片
+const deleteImage = (index) => {
+    uni.showModal({
+        title: '确认删除',
+        content: '确定要删除这张图片吗？',
+        success: (res) => {
+            if (res.confirm) {
+                examStore.removeImage(examStore.currentQuestion.id, index);
+                uni.showToast({
+                    title: '删除成功',
+                    icon: 'success'
+                });
+            }
+        }
+    });
+};
+
 onMounted(() => {
   // 获取胶囊按钮位置信息
   // #ifdef MP-WEIXIN
@@ -648,15 +769,22 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   display: flex;
   align-items: center;
   cursor: pointer;
-  transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+  transition: all 0.3s ease;
+  border: 2rpx solid transparent;
+  background-color: transparent;
 
   &:last-child {
     margin-bottom: 0;
   }
 
   &.selected {
-    background-color: #e0e7ff;
+    background-color: #e6f3ff;
     border-color: #007aff;
+    box-shadow: 0 2rpx 8rpx rgba(0, 122, 255, 0.1);
+  }
+
+  &:active {
+    transform: scale(0.98);
   }
 }
 
@@ -667,18 +795,26 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   margin-right: 20rpx;
   width: 50rpx;
   height: 50rpx;
-  border: 1rpx solid #007aff;
+  border: 2rpx solid #007aff;
+  background-color: transparent;
   border-radius: 50%;
   display: flex;
   justify-content: center;
   align-items: center;
+  transition: all 0.3s ease;
 }
 
-.option-text {
-  font-size: 30rpx;
-  color: #555;
+.choice-item.selected .option-label {
+  background-color: #007aff;
+  border-color: #007aff;
+  color: #fff;
+}
+
+.option-text-content {
   flex: 1;
-  word-break: break-word;
+  font-size: 30rpx;
+  color: #333;
+  line-height: 1.5;
 }
 
 .unsupported-tip {
@@ -920,6 +1056,89 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     width: 100%;
     margin: 1em 0; /* Add vertical margin for block formulas */
   }
+}
+
+/* 上传区域样式 */
+.upload-section {
+    background-color: #fff;
+    border-radius: 12rpx;
+    padding: 20rpx;
+    margin-top: 20rpx;
+}
+
+.upload-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20rpx;
+}
+
+.upload-title {
+    font-size: 32rpx;
+    color: #333;
+    font-weight: bold;
+}
+
+.upload-tip {
+    font-size: 24rpx;
+    color: #999;
+}
+
+.image-preview-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20rpx;
+    margin-bottom: 20rpx;
+}
+
+.image-preview-item {
+    position: relative;
+    width: 200rpx;
+    height: 200rpx;
+    border-radius: 8rpx;
+    overflow: hidden;
+}
+
+.preview-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.image-actions {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 10rpx;
+}
+
+.delete-btn {
+    width: 40rpx;
+    height: 40rpx;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 200rpx;
+    height: 200rpx;
+    background-color: #f5f5f5;
+    border: 2rpx dashed #ddd;
+    border-radius: 8rpx;
+    cursor: pointer;
+}
+
+.upload-btn text {
+    font-size: 24rpx;
+    color: #666;
+    margin-top: 10rpx;
 }
 
 </style> 
