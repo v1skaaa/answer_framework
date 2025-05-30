@@ -188,11 +188,14 @@ onMounted(() => {
 // 模拟试卷数据（没有接口前的占位数据）
 const paper = ref({
   title: '加载中...', // 初始标题，等待API数据更新
-  difficulty: undefined, // Initialize with undefined
-  totalScore: undefined, // Initialize with undefined
-  parts: [], // Initialize as empty array
-  // 可以在这里添加更多试卷相关信息，比如 ID
-  id: null,
+  difficulty: 4.7, // 虚拟难度
+  totalScore: 150, // 虚拟总分
+  parts: [ // 虚拟题目构成部分
+    { name: '选择题', count: 9, score: 45 },
+    { name: '填空题', count: 6, score: 30 },
+    { name: '解答题', count: 5, score: 75 },
+  ],
+  id: null, // 试卷ID，等待API数据更新
 });
 
 // 根据sourceId获取试卷详情并更新标题

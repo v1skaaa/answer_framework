@@ -138,6 +138,7 @@ export const useExamStore = defineStore('exam', () => {
   const showQuestionCard = ref(false)
   const uploadedImages = ref({}) // 存储每个题目的上传图片
   const paperId = ref(null) // 新增存储试卷ID的状态
+  const favoritedQuestionIds = ref(new Set()) // 存储被收藏题目的ID集合
 
   // 计算属性
   const totalQuestions = computed(() => questions.value.length)
@@ -318,13 +319,13 @@ export const useExamStore = defineStore('exam', () => {
           currentQ.selectedAnswers = [value]
         } else if (currentQ.choiceType === 2) {
           // 多选题：切换选中状态
-          const index = currentQ.selectedAnswers.indexOf(value)
-          if (index > -1) {
-            currentQ.selectedAnswers.splice(index, 1)
-          } else {
-            currentQ.selectedAnswers.push(value)
-          }
-          currentQ.selectedAnswers.sort()
+        const index = currentQ.selectedAnswers.indexOf(value)
+        if (index > -1) {
+          currentQ.selectedAnswers.splice(index, 1)
+        } else {
+          currentQ.selectedAnswers.push(value)
+        }
+        currentQ.selectedAnswers.sort()
         }
         console.log(`Question ${currentQ.number}: Selected option ${value}. Current selections:`, currentQ.selectedAnswers)
       } else {
@@ -468,7 +469,7 @@ export const useExamStore = defineStore('exam', () => {
              //  imageUrls: null,
              //  imageDataBase64: null,
              //  timeSpent: null
-             // });
+    // });
         }
       }
     });
@@ -481,12 +482,12 @@ export const useExamStore = defineStore('exam', () => {
       
       // TODO: 根据提交接口的实际响应进行处理
       if (response && response.flag === '1') { // 假设 flag === '1' 表示成功
-         uni.showToast({
+          uni.showToast({
             title: response.msg || '交卷成功',
             icon: 'success'
           });
           // 导航到结果页面或其他后续页面
-          uni.redirectTo({
+            uni.redirectTo({
             url: '/pages/exam/result/index' // 请替换为你的实际结果页路径
           });
       } else {
@@ -643,8 +644,8 @@ export const useExamStore = defineStore('exam', () => {
           // 如果没有图片了，清除答案
           if (currentQ.selectedAnswer.images.length === 0) {
             currentQ.selectedAnswer = '';
-          }
         }
+      }
       }
     }
   }
@@ -661,6 +662,22 @@ export const useExamStore = defineStore('exam', () => {
     }
   }
 
+  // 切换题目收藏状态
+  const toggleFavorite = (questionId) => {
+    if (questionId) {
+      if (favoritedQuestionIds.value.has(questionId)) {
+        favoritedQuestionIds.value.delete(questionId);
+        console.log(`取消收藏题目: ${questionId}`);
+      } else {
+        favoritedQuestionIds.value.add(questionId);
+        console.log(`收藏题目: ${questionId}`);
+      }
+      console.log('当前收藏列表:', Array.from(favoritedQuestionIds.value));
+    } else {
+      console.warn('无法收藏题目：缺少题目ID');
+    }
+  }
+
   return {
     // 状态
     questions,
@@ -671,6 +688,7 @@ export const useExamStore = defineStore('exam', () => {
     showQuestionCard,
     uploadedImages,
     paperId,
+    favoritedQuestionIds,
     
     // 计算属性
     totalQuestions,
@@ -692,6 +710,7 @@ export const useExamStore = defineStore('exam', () => {
     submitExam,
     uploadImage,
     removeImage,
-    clearImages
+    clearImages,
+    toggleFavorite
   }
 }) 

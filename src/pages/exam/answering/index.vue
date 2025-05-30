@@ -25,8 +25,8 @@
              <view class="content-header-icons">
                 <text class="question-counter">{{ examStore.currentQuestionIndex + 1 }} / {{ examStore.totalQuestions }}</text> <!-- 题目标号和总数 -->
                 <!-- 根据当前题目类型显示不同的收藏图标或占位符 -->
-                <uni-icons v-if="examStore.currentQuestion.type === 'choice'" type="star" size="24" color="#333" class="header-icon"></uni-icons> <!-- 选择题收藏 -->
-                <view v-else class="header-icon-placeholder"></view> <!-- 其他题型占位符 -->
+                <uni-icons :type="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? 'star-filled' : 'star'" size="24" :color="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? '#ffb300' : '#333'" class="header-icon" @click="examStore.toggleFavorite(examStore.currentQuestion.id)"></uni-icons> <!-- 选择题收藏 -->
+                <!-- <view v-else class="header-icon-placeholder"></view> --> <!-- 其他题型占位符 -->
                 <uni-icons type="bars" size="24" color="#333" class="header-icon" @click="examStore.toggleQuestionCard"></uni-icons> <!-- 答题卡 -->
                 <text class="countdown">{{ examStore.formattedTime }}</text> <!-- 倒计时 -->
             </view>
@@ -221,6 +221,42 @@
                     </template>
                 </view>
             </view>
+        </view>
+
+        <!-- 添加导航按钮区域 -->
+        <view class="navigation-buttons">
+            <!-- 第一题：只显示下一题按钮 -->
+            <template v-if="examStore.currentQuestionIndex === 0">
+                <view class="single-button-container">
+                    <button class="nav-button next-button" @click="handleNextQuestion">
+                        下一题
+                    </button>
+                </view>
+            </template>
+            
+            <!-- 最后一题：显示上一题和答题卡按钮 -->
+            <template v-else-if="examStore.currentQuestionIndex === examStore.totalQuestions - 1">
+                <view class="dual-button-container">
+                    <button class="nav-button prev-button" @click="handlePrevQuestion">
+                        上一题
+                    </button>
+                    <button class="nav-button card-button" @click="examStore.toggleQuestionCard">
+                        答题卡
+                    </button>
+                </view>
+            </template>
+            
+            <!-- 中间题目：显示上一题和下一题按钮 -->
+            <template v-else>
+                <view class="dual-button-container">
+                    <button class="nav-button prev-button" @click="handlePrevQuestion">
+                        上一题
+                    </button>
+                    <button class="nav-button next-button" @click="handleNextQuestion">
+                        下一题
+                    </button>
+                </view>
+            </template>
         </view>
 
     </view>
@@ -567,6 +603,26 @@ const deleteImage = (index) => {
             }
         }
     });
+};
+
+// 处理上一题按钮点击
+const handlePrevQuestion = () => {
+    if (isMiniProgram.value) {
+        runMPAnimation('right');
+    } else {
+        transitionDirection.value = 'right';
+        examStore.prevQuestion();
+    }
+};
+
+// 处理下一题按钮点击
+const handleNextQuestion = () => {
+    if (isMiniProgram.value) {
+        runMPAnimation('left');
+    } else {
+        transitionDirection.value = 'left';
+        examStore.nextQuestion();
+    }
 };
 
 onMounted(() => {
@@ -1139,6 +1195,66 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     font-size: 24rpx;
     color: #666;
     margin-top: 10rpx;
+}
+
+/* 导航按钮样式 */
+.navigation-buttons {
+    position: fixed;
+    bottom: 40rpx;
+    left: 0;
+    right: 0;
+    padding: 0 40rpx;
+    z-index: 99;
+}
+
+.single-button-container {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.dual-button-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 40rpx;
+}
+
+.nav-button {
+    flex: 1;
+    height: 88rpx;
+    border-radius: 44rpx;
+    font-size: 32rpx;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+
+    &:active {
+        transform: scale(0.98);
+    }
+}
+
+.prev-button {
+    background-color: #f5f5f5;
+    color: #666;
+}
+
+.next-button {
+    background-color: #007aff;
+    color: #fff;
+}
+
+.card-button {
+    background-color: #e45656;
+    color: #fff;
+}
+
+/* 调整内容区域底部间距，为导航按钮留出空间 */
+.question-content {
+    padding-bottom: 160rpx;
 }
 
 </style> 
