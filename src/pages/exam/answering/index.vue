@@ -24,7 +24,9 @@
             <view class="paper-title-in-content">{{ examStore.paperTitle }}</view> <!-- 试卷名称 -->
              <view class="content-header-icons">
                 <text class="question-counter">{{ examStore.currentQuestionIndex + 1 }} / {{ examStore.totalQuestions }}</text> <!-- 题目标号和总数 -->
-                <uni-icons type="star" size="24" color="#333" class="header-icon"></uni-icons> <!-- 收藏 -->
+                <!-- 根据当前题目类型显示不同的收藏图标或占位符 -->
+                <uni-icons v-if="examStore.currentQuestion.type === 'choice'" type="star" size="24" color="#333" class="header-icon"></uni-icons> <!-- 选择题收藏 -->
+                <view v-else class="header-icon-placeholder"></view> <!-- 其他题型占位符 -->
                 <uni-icons type="bars" size="24" color="#333" class="header-icon" @click="examStore.toggleQuestionCard"></uni-icons> <!-- 答题卡 -->
                 <text class="countdown">{{ examStore.formattedTime }}</text> <!-- 倒计时 -->
             </view>
@@ -47,38 +49,47 @@
                          <!-- Iterate through text segments -->
                          <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
                              <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" :scale="0.8"></MathJax>
+                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" ></MathJax>
                          </template>
                     </view>
                     <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image"></image>
 
                     <!-- 答案区域 -->
                     <view class="answer-area">
-                        <template v-if="examStore.currentQuestion && examStore.currentQuestion.options && examStore.currentQuestion.options.length > 0">
-                            <view 
-                                class="choice-item" 
-                                v-for="(option, optionIndex) in examStore.currentQuestion.options" 
-                                :key="optionIndex"
-                                @click="examStore.selectOption(option.value)"
-                                :class="{'selected': examStore.currentQuestion.selectedAnswers && examStore.currentQuestion.selectedAnswers.includes(option.value)}"
-                                >
-                                <text class="option-label">{{ option.label }}</text>
-                                 <!-- Render option text with MathJax component -->
-                                <view class="option-text-content">
-                                    <!-- Iterate through option text segments -->
-                                     <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
-                                         <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" :scale="0.6"></MathJax>
-                                     </template>
+                        <template v-if="examStore.currentQuestion.type === 'choice'">
+                            <template v-if="examStore.currentQuestion && examStore.currentQuestion.options && examStore.currentQuestion.options.length > 0">
+                                <view 
+                                    class="choice-item" 
+                                    v-for="(option, optionIndex) in examStore.currentQuestion.options" 
+                                    :key="optionIndex"
+                                    @click="examStore.selectOption(option.value)"
+                                    :class="{'selected': examStore.currentQuestion.selectedAnswers && examStore.currentQuestion.selectedAnswers.includes(option.value)}"
+                                    >
+                                    <text class="option-label">{{ option.label }}</text>
+                                     <!-- Render option text with MathJax component -->
+                                    <view class="option-text-content">
+                                        <!-- Iterate through option text segments -->
+                                         <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
+                                             <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                         </template>
+                                    </view>
                                 </view>
+                            </template>
+                             <template v-else>
+                                  <!-- 如果没有选项数据，可以显示一个提示 -->
+                                 <view class="unsupported-tip">
+                                     <text>本选择题暂无选项数据</text>
+                                 </view>
+                             </template>
+                        </template>
+
+                        <template v-else-if="examStore.currentQuestion.type === 'fill' || examStore.currentQuestion.type === 'application'">
+                            <!-- 填空题和解答题暂时不支持作答 -->
+                            <view class="unsupported-tip">
+                                <text>本题暂不支持输入作答</text>
                             </view>
                         </template>
-                         <template v-else>
-                              <!-- 如果没有选项数据，可以显示一个提示 -->
-                             <view class="unsupported-tip">
-                                 <text>本题暂无选项数据或类型不支持</text>
-                             </view>
-                         </template>
                     </view>
                 </view>
             </view>
@@ -99,38 +110,47 @@
                      <!-- Iterate through text segments -->
                      <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
                          <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" :scale="0.8"></MathJax>
+                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                      </template>
                 </view>
                 <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image"></image>
 
                 <!-- 答案区域 -->
                 <view class="answer-area">
-                    <template v-if="examStore.currentQuestion && examStore.currentQuestion.options && examStore.currentQuestion.options.length > 0">
-                        <view 
-                            class="choice-item" 
-                            v-for="(option, optionIndex) in examStore.currentQuestion.options" 
-                            :key="optionIndex"
-                            @click="examStore.selectOption(option.value)"
-                            :class="{'selected': examStore.currentQuestion.selectedAnswers && examStore.currentQuestion.selectedAnswers.includes(option.value)}"
-                            >
-                            <text class="option-label">{{ option.label }}</text>
-                             <!-- Render option text with MathJax component -->
-                            <view class="option-text-content">
-                                 <!-- Iterate through option text segments -->
-                                 <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
-                                     <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                     <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" :scale="0.6"></MathJax>
-                                 </template>
+                    <template v-if="examStore.currentQuestion.type === 'choice'">
+                        <template v-if="examStore.currentQuestion && examStore.currentQuestion.options && examStore.currentQuestion.options.length > 0">
+                            <view 
+                                class="choice-item" 
+                                v-for="(option, optionIndex) in examStore.currentQuestion.options" 
+                                :key="optionIndex"
+                                @click="examStore.selectOption(option.value)"
+                                :class="{'selected': examStore.currentQuestion.selectedAnswers && examStore.currentQuestion.selectedAnswers.includes(option.value)}"
+                                >
+                                <text class="option-label">{{ option.label }}</text>
+                                 <!-- Render option text with MathJax component -->
+                                <view class="option-text-content">
+                                    <!-- Iterate through option text segments -->
+                                     <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
+                                         <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                     </template>
+                                </view>
                             </view>
+                        </template>
+                         <template v-else>
+                              <!-- 如果没有选项数据，可以显示一个提示 -->
+                             <view class="unsupported-tip">
+                                 <text>本选择题暂无选项数据</text>
+                             </view>
+                         </template>
+                    </template>
+
+                    <template v-else-if="examStore.currentQuestion.type === 'fill' || examStore.currentQuestion.type === 'application'">
+                        <!-- 填空题和解答题暂时不支持作答 -->
+                        <view class="unsupported-tip">
+                            <text>本题暂不支持输入作答</text>
                         </view>
                     </template>
-                     <template v-else>
-                          <!-- 如果没有选项数据，可以显示一个提示 -->
-                         <view class="unsupported-tip">
-                             <text>本题暂无选项数据或类型不支持</text>
-                         </view>
-                     </template>
                 </view>
             </view>
         </view>
@@ -572,6 +592,11 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     cursor: pointer;
 }
 
+.header-icon-placeholder {
+  width: 48rpx; /* Match icon size */
+  height: 24px; /* Match icon size */
+}
+
 .countdown {
     font-size: 28rpx;
     color: #e45656;
@@ -858,6 +883,7 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 .option-text-content {
   line-height: 1.6;
   word-break: break-word;
+  font-size: 0; /* Eliminate space between inline-block elements */
 }
 
 /* Style for the MathJax container when in display mode (should act like a block) */
@@ -870,13 +896,21 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 .question-stem-content text,
 .option-text-content text {
   vertical-align: middle;
+  font-size: 34rpx; /* Reset font size for question stem text */
+}
+
+.option-text-content text {
+   font-size: 32rpx; /* Reset font size for option text */
 }
 
 /* Assuming MathJax component root is .mathjax-container */
 /* Need to find a way to apply block-like behavior conditionally */
 /* Let's add a simple margin for now to separate inline elements */
 .mathjax-container {
-  margin: 0 2rpx; /* Add small horizontal margin for inline formulas */
+  display: inline-block;
+  vertical-align: middle;
+  /* margin: 0 2rpx; */ /* Add small horizontal margin for inline formulas */
+  font-size: 30rpx; /* Reset font size for inline formulas */
 
   /* Attempt to make display mode formulas act like blocks */
   /* This might require inspecting the rendered HTML structure by MathJax */

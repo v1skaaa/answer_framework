@@ -12,26 +12,21 @@ export function login(data) {
   });
 }
 
-// 获取用户信息 - 使用API服务
-export function getUserInfo() {
-  return apiService({
-    url: '/api/tenant/private/user/getUserInfoById',
-    method: 'get'
-  });
-}
-
-// 获取用户统计数据 - 使用API服务
-export function getUserStats() {
-  return apiService({
-    url: '/api/user/stats',
-    method: 'get'
-  });
-}
-
 // 退出登录 - 使用认证服务
 export function logout() {
   return authService({
     url: '/api/auth/tenant/logout',
     method: 'post'
+  });
+}
+
+// 获取用户详细信息
+export function getUserInfoById(userId) {
+  return authService({
+    url: `/api/tenant/private/user/getUserInfoById`,
+    method: 'get',
+    params: {
+      userId
+    }
   });
 } 

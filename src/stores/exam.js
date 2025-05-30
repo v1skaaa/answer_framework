@@ -170,9 +170,9 @@ export const useExamStore = defineStore('exam', () => {
     const orderedTypes = []
     if (types['choice']) orderedTypes.push(types['choice'])
     if (types['fill']) orderedTypes.push(types['fill'])
-    if (types['text']) orderedTypes.push(types['text'])
+    if (types['application']) orderedTypes.push(types['application'])
     for (const typeKey in types) {
-      if (!['choice', 'fill', 'text'].includes(typeKey)) {
+      if (!['choice', 'fill', 'application'].includes(typeKey)) {
         orderedTypes.push(types[typeKey])
       }
     }
@@ -197,26 +197,71 @@ export const useExamStore = defineStore('exam', () => {
     try {
       const res = await getQuestionList(sourceId)
       if (res.flag === '1' && res.result) {
-        questions.value = res.result.map((item, index) => ({
-          id: item.qcId,
-          number: item.queSort,
-          type: 'choice',
-          textSegments: item.queStem ? parseMathText(item.queStem) : [],
-          options: [
-            { label: 'A', segments: item.optionA ? parseMathText(item.optionA) : [], value: 'A' },
-            { label: 'B', segments: item.optionB ? parseMathText(item.optionB) : [], value: 'B' },
-            { label: 'C', segments: item.optionC ? parseMathText(item.optionC) : [], value: 'C' },
-            { label: 'D', segments: item.optionD ? parseMathText(item.optionD) : [], value: 'D' },
-          ],
-          selectedAnswers: [],
-          index: index
-        }))
-        // 从第一个题目中获取试卷名称
-        // if (res.result.length > 0 && res.result[0].paperName) {
-        //   paperTitle.value = res.result[0].paperName
+        const allQuestions = [];
+
+        // Process choice questions
+        if (res.result.choiceQuestions) {
+          res.result.choiceQuestions.forEach((item) => {
+            allQuestions.push({
+              id: item.qcId,
+              number: item.queSort,
+              type: 'choice',
+              textSegments: item.queStem ? parseMathText(item.queStem) : [],
+              options: [
+                { label: 'A', segments: item.optionA ? parseMathText(item.optionA) : [], value: 'A' },
+                { label: 'B', segments: item.optionB ? parseMathText(item.optionB) : [], value: 'B' },
+                { label: 'C', segments: item.optionC ? parseMathText(item.optionC) : [], value: 'C' },
+                { label: 'D', segments: item.optionD ? parseMathText(item.optionD) : [], value: 'D' },
+              ],
+              selectedAnswers: [], // For multiple choice, use an array
+              // index will be assigned after sorting
+            });
+          });
+        }
+
+        // Process blank questions
+        if (res.result.blankQuestions) {
+           res.result.blankQuestions.forEach((item) => {
+            allQuestions.push({
+              id: item.qbId,
+              number: item.queSort,
+              type: 'fill',
+              textSegments: item.queStem ? parseMathText(item.queStem) : [],
+              options: [], // Blank questions have no options in this format
+              selectedAnswer: '', // Use a single value for fill-in-the-blank
+              // index will be assigned after sorting
+            });
+          });
+        }
+
+        // Process application questions
+         if (res.result.applicationQuestions) {
+           res.result.applicationQuestions.forEach((item) => {
+            allQuestions.push({
+              id: item.qaId,
+              number: item.queSort,
+              type: 'application',
+              textSegments: item.queStem ? parseMathText(item.queStem) : [],
+              options: [], // Application questions have no options
+              selectedAnswer: '', // Use a single value for application questions
+              // index will be assigned after sorting
+            });
+          });
+        }
+
+        // Sort questions by queSort (now mapped to 'number')
+        allQuestions.sort((a, b) => a.number - b.number);
+
+        // Assign index after sorting
+        questions.value = allQuestions.map((q, index) => ({ ...q, index }));
+
+        // TODO: Determine paper title from response if available
+        // if (res.result.paperName) {
+        //   paperTitle.value = res.result.paperName;
         // } else {
-        //   paperTitle.value = '试卷名称'
+          paperTitle.value = '试卷名称'; // Default title
         // }
+
       } else {
         console.error('Failed to load questions:', res.msg)
         uni.showToast({
@@ -251,9 +296,19 @@ export const useExamStore = defineStore('exam', () => {
           currentQ.selectedAnswers.push(value)
         }
         currentQ.selectedAnswers.sort()
+        console.log(`Question ${currentQ.number}: Selected option ${value}. Current selections:`, currentQ.selectedAnswers)
       } else {
         currentQ.selectedAnswer = value
+        console.log(`Question ${currentQ.number}: Selected answer ${value}. Current answer:`, currentQ.selectedAnswer)
       }
+    }
+  }
+
+  // For fill-in-the-blank or application questions that might have a single answer input
+  const updateSelectedAnswer = (value) => {
+    const currentQ = questions.value[currentQuestionIndex.value]
+    if (currentQ && (currentQ.type === 'fill' || currentQ.type === 'application')) {
+      currentQ.selectedAnswer = value
     }
   }
 
@@ -281,12 +336,14 @@ export const useExamStore = defineStore('exam', () => {
   }
 
   const startTimer = () => {
+    if (timer.value) return
     timer.value = setInterval(() => {
       if (timeRemaining.value > 0) {
         timeRemaining.value--
       } else {
-        clearInterval(timer.value)
-        console.log('倒计时结束')
+        stopTimer()
+        // TODO: Handle exam submission automatically when time runs out
+        console.log('时间到！')
       }
     }, 1000)
   }
@@ -299,26 +356,43 @@ export const useExamStore = defineStore('exam', () => {
   }
 
   const submitExam = () => {
-    const userAnswer = questions.value.map(q => ({
+    stopTimer()
+    console.log('提交考试')
+    // TODO: Implement actual submission logic
+    // Access questions.value to get all questions and user's answers
+    console.log('所有题目及答案:', questions.value.map(q => ({
       id: q.id,
-      selectedAnswers: q.selectedAnswers
-    }))
-    const examData = {
-      userAnswer: userAnswer,
-      questions: questions.value,
-      paperTitle: paperTitle.value,
-      startTime: Date.now() - (3600 - timeRemaining.value) * 1000
-    }
+      number: q.number,
+      type: q.type,
+      selected: q.type === 'choice' ? q.selectedAnswers : q.selectedAnswer,
+      correctAnswer: q.correctAnswer // Note: correctAnswer is not in the provided API response, you might need to adjust or fetch separately if needed for grading.
+    })));
 
-    uni.navigateTo({
-      url: '/pages/exam/result/index',
+    // Example: Navigate to result page
+    // uni.redirectTo({
+    //   url: '/pages/exam/result/index'
+    // });
+
+    uni.showModal({
+      title: '交卷确认',
+      content: '确定要提交试卷吗？',
       success: (res) => {
-        res.eventChannel.emit('acceptResultData', examData)
-      },
-      fail: (err) => {
-        console.error('跳转到结果页面失败:', err)
+        if (res.confirm) {
+          console.log('用户点击确定');
+          // TODO: Call API to submit answers
+          uni.showToast({
+            title: '交卷成功 (模拟)',
+            icon: 'success'
+          });
+           // Example: Navigate to result page after submission
+            uni.redirectTo({
+             url: '/pages/exam/result/index' // Replace with your actual result page path
+            });
+        } else if (res.cancel) {
+          console.log('用户点击取消');
+        }
       }
-    })
+    });
   }
 
   return {
@@ -339,6 +413,7 @@ export const useExamStore = defineStore('exam', () => {
     // 方法
     loadQuestions,
     selectOption,
+    updateSelectedAnswer,
     nextQuestion,
     prevQuestion,
     goToQuestion,

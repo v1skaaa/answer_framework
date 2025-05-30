@@ -77,6 +77,22 @@
 				"navigationBarTitleText": "结果详情",
 				"navigationStyle": "custom"
 			}
+		},
+		// Register personal detail page
+		{
+			"path": "pages/mine/detail/index",
+			"style": {
+				"navigationBarTitleText": "个人主页",
+				"navigationStyle": "custom"
+			}
+		},
+		// Register exam record page
+		{
+			"path": "pages/mine/examRecord/index",
+			"style": {
+				"navigationBarTitleText": "考试记录",
+				"navigationStyle": "custom"
+			}
 		}
 	],
 	"tabBar": {

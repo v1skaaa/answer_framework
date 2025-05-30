@@ -48,12 +48,16 @@ export default {
     },
     processedFormula() {
     if (!this.formula) return '';
-    
     let processed = this.formula;
     
     // 处理双反斜杠转义
     processed = processed.replace(/\\\\/g, '\\');
     
+    // 关键修改：将 \\( 和 \\) 统一转换为 $
+    processed = processed
+      .replace(/\\\(/g, '$')  // 替换 \\( 为 $
+      .replace(/\\\)/g, '$'); // 替换 \\) 为 $
+
     // 根据 displayMode 包装公式
     if (this.displayMode) {
       // Display mode: 使用 $$
@@ -237,8 +241,8 @@ export default {
 }
 
 .math-content {
-  min-height: 1em;
-  line-height: 1.5;
+  /* min-height: 1em; */
+  /* line-height: 1.5; */
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
@@ -256,5 +260,12 @@ export default {
   color: #666;
   font-size: 24rpx;
   margin-top: 8rpx;
+}
+
+.math-content mjx-container {
+    overflow: hidden;
+}
+.mjx-chtml {
+    letter-spacing: -0.5px; /* 微调字符间距 */
 }
 </style>

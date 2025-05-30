@@ -1,6 +1,6 @@
 <template>
   <view class="container">
-    <view class="header">
+    <view class="header" @click="goToPersonalDetail">
       <image class="avatar" :src="'/static/images/default-avatar.png'" mode="aspectFill"></image>
       <text class="username">{{ userInfo.nickname || userInfo.username }}</text>
     </view>
@@ -50,6 +50,16 @@
         </view>
       </view>
     </view>
+    <view class="menu-group">
+      <view class="menu-group-title">考试</view>
+      <view class="menu-list">
+        <view class="menu-item" @click="navTo('/pages/mine/examRecord/index')">
+          <view class="menu-icon"><uni-icons type="list" size="22" color="#a6c0fe"></uni-icons></view>
+          <text class="menu-text">考试记录</text>
+          <text class="menu-arrow">></text>
+        </view>
+      </view>
+    </view>
     <view class="logout-btn" @click="showLogoutConfirm">
       <text>退出登录</text>
     </view>
@@ -58,6 +68,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
+import { useUserDetailStore } from '@/stores/userDetail';
 
 // 保留原有的用户信息和统计数据模拟，根据需要进行调整
 const userInfo = ref({
@@ -121,7 +132,25 @@ onMounted(() => {
   // 这里可以调用API获取用户真实数据
   // getUserInfo();
   // getUserStats();
+
+  // Get nickname from local storage and update userInfo
+  const storedNickname = uni.getStorageSync('nickname');
+  if (storedNickname) {
+    userInfo.value.nickname = storedNickname;
+  }
 });
+
+const userDetailStore = useUserDetailStore();
+
+const goToPersonalDetail = async () => {
+  const userId = uni.getStorageSync('id');
+  if (userId) {
+    await userDetailStore.fetchUserDetail(userId);
+  }
+  uni.navigateTo({
+    url: '/pages/mine/detail/index'
+  });
+};
 </script>
 
 <style lang="scss">

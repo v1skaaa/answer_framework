@@ -10,7 +10,8 @@ export const useUserStore = defineStore('user', {
     avatar: uni.getStorageSync('avatar') || null,
     permissions: uni.getStorageSync('permissions') || [],
     roles: uni.getStorageSync('roles') || [],
-    expires: uni.getStorageSync('expires') || ''
+    expires: uni.getStorageSync('expires') || '',
+    id:uni.getStorageSync('id') || ''
   }),
 
   getters: {
@@ -54,7 +55,8 @@ export const useUserStore = defineStore('user', {
           nickname,
           username,
           avatar,
-          expires
+          expires,
+          id
         } = res.result;
         
         // 保存到状态中
@@ -66,6 +68,7 @@ export const useUserStore = defineStore('user', {
         this.username = username;
         this.avatar = avatar;
         this.expires = expires;
+        this.id = id;
 
         // 存储到本地
         uni.setStorageSync('accessToken', accessToken);
@@ -76,6 +79,7 @@ export const useUserStore = defineStore('user', {
         uni.setStorageSync('username', username);
         uni.setStorageSync('avatar', avatar);
         uni.setStorageSync('expires', expires);
+        uni.setStorageSync('id', id);
         
         return res;
       } catch (error) {
@@ -104,6 +108,7 @@ export const useUserStore = defineStore('user', {
       this.permissions = [];
       this.roles = [];
       this.expires = '';
+      this.id = '';
       
       // 清除本地存储
       uni.removeStorageSync('accessToken');
@@ -114,6 +119,7 @@ export const useUserStore = defineStore('user', {
       uni.removeStorageSync('username');
       uni.removeStorageSync('avatar');
       uni.removeStorageSync('expires');
+      uni.removeStorageSync('id');
     }
   }
 }); 

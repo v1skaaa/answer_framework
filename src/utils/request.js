@@ -2,12 +2,12 @@ import axios from 'axios';
 
 // 创建两个 Axios 实例，分别用于不同的服务
 const authService = axios.create({
-  baseURL: 'http://192.168.1.138:8001',
+  baseURL: 'http://172.16.99.32:8001',
   timeout: 5000, // 请求超时时间
 });
 
 const apiService = axios.create({
-  baseURL: 'http://192.168.1.138:8002',
+  baseURL: 'http://172.16.99.32:8002',
   timeout: 5000,
 });
 
@@ -47,8 +47,15 @@ apiService.interceptors.request.use(
 authService.interceptors.response.use(
   response => {
     // 对响应数据做些什么
-    // 例如：可以直接返回 data，或者根据后端的返回结构进行处理
     const res = response.data;
+    
+    // 如果是登录接口，记录响应数据
+    if (response.config.url.includes('/login')) {
+      console.log('登录接口响应数据:', res);
+      if (res.result) {
+        console.log('登录返回的用户信息:', res.result);
+      }
+    }
     
     // 根据后端返回的 flag 判断请求是否成功
     if (res.flag === '1') {
