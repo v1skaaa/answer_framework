@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { getQuestionList } from '@/api/exam'
 import { submitExamComplete } from '@/api/exam'
+import { useUserStore } from '@/stores/user'
 
 // 解析数学公式文本的辅助函数
 const parseMathText = (text) => {
@@ -399,10 +400,22 @@ export const useExamStore = defineStore('exam', () => {
       return;
     }
 
+    // 从 user store 获取 studentId
+    const userStore = useUserStore();
+    const studentId = userStore.id;
+    if (!studentId) {
+      console.error('无法提交考试：缺少 studentId，用户可能未登录');
+      uni.showToast({
+        title: '无法提交考试：请先登录',
+        icon: 'none'
+      });
+      return;
+    }
+
     // 构建请求体
     const submissionData = {
       paperId: paperId.value,
-      studentId: "1", // 暂时硬编码 studentId
+      studentId: studentId, // 从 user store 获取的 studentId
       choiceAnswerDetails: [],
       blankAnswerDetails: [],
       applicationAnswerDetails: []
@@ -411,8 +424,8 @@ export const useExamStore = defineStore('exam', () => {
     questions.value.forEach(q => {
       if (q.type === 'choice') {
         if (q.selectedAnswers && q.selectedAnswers.length > 0) {
-          // 格式化选择题答案，多选逗号分隔
-          const stuAnswer = q.selectedAnswers.join(',');
+          // 格式化选择题答案，多选直接连接
+          const stuAnswer = q.selectedAnswers.join('');
           submissionData.choiceAnswerDetails.push({
             queSort: q.number,
             stuAnswer: stuAnswer,
@@ -436,14 +449,7 @@ export const useExamStore = defineStore('exam', () => {
              // 如果有文本答案，处理文本答案 (如果填空题支持文本输入)
              // 注意：根据你的需求，填空题目前主要支持图片上传，
              // 如果有文本输入的需求，需要在这里添加处理逻辑
-             console.warn(`填空题 ${q.number} 包含非图片答案，当前未实现文本答案提交.`);
-             // submissionData.blankAnswerDetails.push({
-             //  queSort: q.number,
-             //  stuAnswer: q.selectedAnswer, // 如果支持文本答案
-             //  imageUrls: null,
-             //  imageDataBase64: null,
-             //  timeSpent: null
-             // });
+             console.warn(`Question ${q.number} (fill) contains non-image answer, text submission not implemented.`);
         }
       } else if (q.type === 'application') {
         // 处理解答题的图片上传
@@ -462,14 +468,7 @@ export const useExamStore = defineStore('exam', () => {
              // 如果有文本答案，处理文本答案 (如果解答题支持文本输入)
              // 注意：根据你的需求，解答题目前主要支持图片上传，
              // 如果有文本输入的需求，需要在这里添加处理逻辑
-              console.warn(`解答题 ${q.number} 包含非图片答案，当前未实现文本答案提交.`);
-             // submissionData.applicationAnswerDetails.push({
-             //  queSort: q.number,
-             //  stuAnswer: q.selectedAnswer, // 如果支持文本答案
-             //  imageUrls: null,
-             //  imageDataBase64: null,
-             //  timeSpent: null
-    // });
+              console.warn(`Question ${q.number} (application) contains non-image answer, text submission not implemented.`);
         }
       }
     });

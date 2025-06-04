@@ -7,8 +7,9 @@
           <uni-icons type="left" size="24" color="#333"></uni-icons>
         </view>
       </view>
-      <!-- 移除固定头部的试卷名称 -->
-      <!-- <view class="page-title">{{ paper.title || '试卷详情' }}</view> -->
+      <view class="center-section">
+        <text class="header-title">试卷详情</text>
+      </view>
       <view class="right-section"></view> <!-- 右侧占位符 -->
     </view>
 
@@ -134,18 +135,24 @@ const overlayTop = computed(() => {
 
 // 在页面加载时获取传递的数据
 onLoad((options) => {
-    console.log('intro: Page onLoad'); // Add log
-    // 从 options 参数获取传递过来的 sourceId
+    console.log('intro: Page onLoad');
     if (options && options.sourceId) {
         const sourceId = options.sourceId;
-        console.log('intro: Received sourceId from options:', sourceId); // Add log
-        console.log('intro: Calling fetchPaperDetail with sourceId:', sourceId); // Add log
+        const paperName = options.paperName;
+        console.log('intro: Received sourceId from options:', sourceId);
+        console.log('intro: Received paperName from options:', paperName);
+        
+        // 如果有 paperName，先设置标题
+        if (paperName) {
+            paper.value.title = decodeURIComponent(paperName);
+        }
+        
+        console.log('intro: Calling fetchPaperDetail with sourceId:', sourceId);
         fetchPaperDetail(sourceId);
     } else {
-        console.log('intro: No sourceId received from options'); // Add log
-         // 如果没有接收到 sourceId，可以初始化 paper 为加载失败状态
-        paper.value = {
-            title: '未获取到试卷信息',
+        console.log('intro: No sourceId received from options');
+         paper.value = {
+            title: '未获取到试卷ID',
             difficulty: undefined,
             totalScore: undefined,
             parts: [],
@@ -188,13 +195,9 @@ onMounted(() => {
 // 模拟试卷数据（没有接口前的占位数据）
 const paper = ref({
   title: '加载中...', // 初始标题，等待API数据更新
-  difficulty: 4.7, // 虚拟难度
-  totalScore: 150, // 虚拟总分
-  parts: [ // 虚拟题目构成部分
-    { name: '选择题', count: 9, score: 45 },
-    { name: '填空题', count: 6, score: 30 },
-    { name: '解答题', count: 5, score: 75 },
-  ],
+  difficulty: undefined, // Use undefined initially
+  totalScore: undefined, // Use undefined initially
+  parts: [],
   id: null, // 试卷ID，等待API数据更新
 });
 
@@ -203,9 +206,8 @@ const fetchPaperDetail = async (sourceId) => {
   console.log('fetchPaperDetail called with sourceId:', sourceId); // Add log
   if (!sourceId) {
     console.warn('fetchPaperDetail: No sourceId provided');
-     // Optionally update paper state to indicate error or missing data
      paper.value = {
-        title: '加载失败',
+        title: '未获取到试卷ID',
         difficulty: undefined,
         totalScore: undefined,
         parts: [],
@@ -214,23 +216,18 @@ const fetchPaperDetail = async (sourceId) => {
     return;
   }
   try {
-    // this.loading = true; // 如果需要加载状态，可以在这里设置
     const res = await getPaperSourceDetail(sourceId);
     console.log('fetchPaperDetail: API response:', res); // Add log
     if (res.flag === '1' && res.result) {
-      // Only update title and id from API, keep other mock data if needed
-      paper.value.title = res.result.sourceName; // 更新试卷名称
-      // Update the paperTitle in the exam store
-      examStore.paperTitle = res.result.sourceName;
-      paper.value.id = res.result.sourceId; // 存储试卷ID
-       // Keep existing mock data for other fields, or update if API provides them
-       // paper.value.difficulty = res.result.difficulty; // Uncomment if API provides
-       // paper.value.totalScore = res.result.totalScore; // Uncomment if API provides
-       // paper.value.parts = res.result.parts; // Uncomment if API provides
+      paper.value.title = res.result.paperName; // Use paperName from API for title
+      paper.value.totalScore = res.result.totalScore; // Update totalScore from API
+      paper.value.id = res.result.paperId; // Store paperId
+      // Update other fields if API provides them
+      // paper.value.difficulty = res.result.difficulty;
+      // paper.value.parts = res.result.parts;
       console.log('fetchPaperDetail: Successfully updated paper title to:', paper.value.title); // Add log
     } else {
         console.error('fetchPaperDetail: 获取试卷详情失败:', res.msg);
-         // Update paper state to indicate error
         paper.value = {
             title: res.msg || '获取试卷详情失败',
             difficulty: undefined,
@@ -245,7 +242,6 @@ const fetchPaperDetail = async (sourceId) => {
     }
   } catch (error) {
     console.error('fetchPaperDetail: 获取试卷详情异常:', error);
-     // Update paper state to indicate error
     paper.value = {
         title: '获取试卷详情异常',
         difficulty: undefined,
@@ -253,12 +249,10 @@ const fetchPaperDetail = async (sourceId) => {
         parts: [],
         id: null
     };
-     uni.showToast({
+    uni.showToast({
         title: '获取试卷详情异常',
         icon: 'none'
-      });
-  } finally {
-    // this.loading = false; // 如果需要加载状态，在这里结束
+    });
   }
 };
 
@@ -362,7 +356,6 @@ onMounted(() => {
 });
 */
 </script>
-
 <style lang="scss">
 .exam-intro-container {
   padding: 0 20rpx 20rpx 20rpx;
@@ -517,6 +510,14 @@ onMounted(() => {
   &:active {
     opacity: 0.8;
   }
+}
+
+.header-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+  flex: 1; // Added flex: 1 to allow title to take available space
+  text-align: center; // Center the title
 }
 
 </style> 

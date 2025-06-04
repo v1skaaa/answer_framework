@@ -22,8 +22,8 @@
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "首页", // 页面顶部显示"刷题首页"
-				"enablePullDownRefresh": true // 允许用户下拉页面触发刷新
+				"navigationBarTitleText": "首页",
+				"enablePullDownRefresh": true
 			}
 		},
 		{
@@ -39,16 +39,8 @@
 			}
 		},
 		{
-			"path": "pages/test/gaokaoZhenti/index",
+			"path": "pages/test/paperList/index",
 			"style": {
-				"navigationBarTitleText": "高考真题",
-				"navigationStyle": "custom"
-			}
-		},
-		{
-			"path": "pages/test/qimo/index",
-			"style": {
-				"navigationBarTitleText": "期末考试",
 				"navigationStyle": "custom"
 			}
 		},
@@ -64,7 +56,6 @@
 				"navigationStyle": "custom"
 			}
 		},
-		// 注册答题页面
 		{
 			"path": "pages/exam/answering/index",
 			"style": {
@@ -78,7 +69,6 @@
 				"navigationStyle": "custom"
 			}
 		},
-		// Register personal detail page
 		{
 			"path": "pages/mine/detail/index",
 			"style": {
@@ -86,7 +76,6 @@
 				"navigationStyle": "custom"
 			}
 		},
-		// Register exam record page
 		{
 			"path": "pages/mine/examRecord/index",
 			"style": {

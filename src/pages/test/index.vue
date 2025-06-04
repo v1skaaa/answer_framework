@@ -2,39 +2,70 @@
   <view class="test-container">
     <view class="page-title">请选择</view>
     <view class="test-list">
-      <view class="test-item" @click="goToPage('gaokaoZhenti')">
-        <view class="item-content">高考真题</view>
-      </view>
-      <view class="test-item" @click="goToPage('contest')">
-        <view class="item-content">竞赛</view>
-      </view>
-      <view class="test-item" @click="goToPage('gaokaoMoniti')">
-        <view class="item-content">高考模拟</view>
-      </view>
-      <view class="test-item" @click="goToPage('qimo')">
-        <view class="item-content">期末考试</view>
-      </view>
-      <view class="test-item" @click="goToPage('qizhong')">
-        <view class="item-content">期中考试</view>
+      <view 
+        v-for="item in testStore.sortedPaperTypes" 
+        :key="item.typeId"
+        class="test-item" 
+        @click="goToPage(item)"
+      >
+        <view class="item-content">{{ item.typeName }}</view>
       </view>
     </view>
   </view>
 </template>
 
 <script setup>
-// Navigation logic for buttons
-const goToPage = (type) => {
-  console.log('Navigate to page for:', type);
-  if (type === 'gaokaoZhenti') {
-    uni.navigateTo({ url: '/pages/test/gaokaoZhenti/index' });
-  } else if (type === 'qimo') {
-    uni.navigateTo({ url: '/pages/test/qimo/index' });
+import { onMounted } from 'vue';
+import { useTestStore } from '@/stores/test';
+
+const testStore = useTestStore();
+
+// 页面导航逻辑
+const goToPage = (item) => {
+  // 存储当前选中的试卷类型信息
+  testStore.setCurrentType(item);
+
+  // 统一跳转到试卷列表页面
+  uni.navigateTo({ 
+    url: '/pages/test/paperList/index',
+    fail: (err) => {
+      console.error('Navigation failed:', err);
+      uni.showToast({
+        title: '跳转失败',
+        icon: 'none'
+      });
   }
-  // TODO: Handle navigation for other types
+  });
 };
+
+// 页面加载时获取数据
+onMounted(async () => {
+  try {
+    await testStore.fetchPaperTypes();
+  } catch (error) {
+    uni.showToast({
+      title: '获取数据失败',
+      icon: 'none'
+    });
+  }
+});
 </script>
 
 <style lang="scss">
+// 定义渐变颜色数组
+$gradient-colors: (
+  #a6c0fe, rgba(198, 177, 246, 0.31),
+  #70c1ff, rgba(51, 216, 92, 0.54),
+  #ffaa7f, #ff7eb3,
+  #a8edea, #fed6e3,
+  #ffecd2, #fcb69f,
+  #a6c0fe, rgba(198, 177, 246, 0.31),
+  #70c1ff, rgba(51, 216, 92, 0.54),
+  #ffaa7f, #ff7eb3,
+  #a8edea, #fed6e3,
+  #ffecd2, #fcb69f
+);
+
 .test-container {
   padding: 40rpx 20rpx;
   background: linear-gradient(135deg, #f8f8ff 0%, #e0e7ff 100%);
@@ -55,7 +86,7 @@ const goToPage = (type) => {
 .test-list {
   display: flex;
   flex-direction: column;
-  gap: 60rpx; // Space between cards
+  gap: 60rpx;
   width: 100%;
 }
 
@@ -69,9 +100,9 @@ const goToPage = (type) => {
   cursor: pointer;
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
 
-  display: flex; // Use flex to center content vertically
+  display: flex;
   align-items: center;
-  min-height: 120rpx; // Give cards a minimum height
+  min-height: 120rpx;
 
   &:active {
     transform: scale(0.98);
@@ -80,18 +111,20 @@ const goToPage = (type) => {
 }
 
 .item-content {
-  flex: 1; // Allow text to take available space
+  flex: 1;
   font-size: 32rpx;
   font-weight: bold;
   color: #333;
-  text-align: center; // Center text horizontally within the card
+  text-align: center;
 }
 
-/* Optional: Add gradients to cards for variety */
-.test-item:nth-child(1) { background: linear-gradient(135deg, #a6c0fe 0%,rgba(198, 177, 246, 0.31) 100%); .item-content { color: #333; } }
-.test-item:nth-child(2) { background: linear-gradient(135deg, #70c1ff 0%,rgba(51, 216, 92, 0.54) 100%); .item-content { color: #333; } }
-.test-item:nth-child(3) { background: linear-gradient(135deg, #ffaa7f 0%, #ff7eb3 100%); .item-content { color: #333; } }
-.test-item:nth-child(4) { background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); .item-content { color: #333; } }
-.test-item:nth-child(5) { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); .item-content { color: #333; } }
-
+/* 动态生成渐变背景 */
+.test-item {
+  @for $i from 1 through 10 {
+    &:nth-child(#{$i}) {
+      background: linear-gradient(135deg, nth($gradient-colors, $i * 2 - 1) 0%, nth($gradient-colors, $i * 2) 100%);
+      .item-content { color: #333; }
+    }
+  }
+}
 </style> 

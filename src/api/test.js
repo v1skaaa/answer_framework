@@ -1,12 +1,5 @@
 import { apiService } from '@/utils/request';
 
-// 获取试卷来源列表
-export function getPaperSources() {
-  return apiService({
-    url: '/api/tenant/exam/paper-sources',
-    method: 'get'
-  });
-}
 
 // 获取单个试卷来源详情
 export function getPaperSourceDetail(sourceId) {
@@ -15,4 +8,22 @@ export function getPaperSourceDetail(sourceId) {
     method: 'get',
     params: { sourceId }
   });
+}
+
+// 获取试卷类型列表
+export function getPaperTypes() {
+  return apiService({
+    url: '/api/tenant/exam/paper-types',
+    method: 'get'
+  });
+}
+
+// 根据类型ID获取试卷列表
+export function getPapersByType(typeId) {
+  return apiService({
+    url: '/api/tenant/exam/papers-by-type',
+    method: 'get',
+    params: { typeId }
+  });
 } 
+
