@@ -21,4 +21,14 @@ export const submitExamComplete = (data) => {
   });
 }
 
+
+// 获取学生考试记录
+export function getStudentExamRecords(studentId) {
+  return apiService.get('/api/tenant/exam/student-exams', {
+    params: {
+      studentId: studentId
+    }
+  });
+}
+
 // You can add other exam related API functions here later 

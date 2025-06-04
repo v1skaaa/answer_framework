@@ -423,52 +423,81 @@ export const useExamStore = defineStore('exam', () => {
 
     questions.value.forEach(q => {
       if (q.type === 'choice') {
-        if (q.selectedAnswers && q.selectedAnswers.length > 0) {
-          // 格式化选择题答案，多选直接连接
-          const stuAnswer = q.selectedAnswers.join('');
-          submissionData.choiceAnswerDetails.push({
-            queSort: q.number,
-            stuAnswer: stuAnswer,
-            timeSpent: null // 暂时设置为 null
-          });
-        }
+        // Always include choice questions, set stuAnswer to null if no selection
+        const stuAnswer = (q.selectedAnswers && q.selectedAnswers.length > 0) ? q.selectedAnswers.join('') : null;
+        submissionData.choiceAnswerDetails.push({
+          queSort: q.number,
+          stuAnswer: stuAnswer,
+          timeSpent: null // 暂时设置为 null
+        });
       } else if (q.type === 'fill') {
-        // 处理填空题的图片上传
+        // Always include fill questions. Handle images or text answer.
         const images = uploadedImages.value[q.id] || [];
+        
+        // If there are uploaded images, create an entry for each image with base64
         if (images.length > 0) {
-          images.forEach(image => {
-             submissionData.blankAnswerDetails.push({
-              queSort: q.number,
-              stuAnswer: null, // 暂时设置为 null
-              imageUrls: null, // 暂时设置为 null
-              imageDataBase64: image.base64, // 使用存储的base64编码
-              timeSpent: null // 暂时设置为 null
+            images.forEach(image => {
+                submissionData.blankAnswerDetails.push({
+                    queSort: q.number,
+                    stuAnswer: null, // stuAnswer is null when submitting image for fill
+                    imageUrls: null, // Assuming imageUrls is not used yet
+                    imageDataBase64: image.base64, // Use stored base64 encoding
+                    timeSpent: null // 暂时设置为 null
+                });
             });
-          });
-        } else if (q.selectedAnswer) {
-             // 如果有文本答案，处理文本答案 (如果填空题支持文本输入)
-             // 注意：根据你的需求，填空题目前主要支持图片上传，
-             // 如果有文本输入的需求，需要在这里添加处理逻辑
-             console.warn(`Question ${q.number} (fill) contains non-image answer, text submission not implemented.`);
+        } else if (q.selectedAnswer && typeof q.selectedAnswer === 'string' && q.selectedAnswer.trim() !== '') {
+            // If there is a text answer, include it. Assuming fill supports text.
+             submissionData.blankAnswerDetails.push({
+                queSort: q.number,
+                stuAnswer: q.selectedAnswer.trim(), // Include text answer
+                imageUrls: null,
+                imageDataBase64: null, // No image base64 for text answer
+                timeSpent: null // 暂时设置为 null
+            });
+        } else {
+            // If no image and no text answer, include with nulls
+            submissionData.blankAnswerDetails.push({
+                queSort: q.number,
+                stuAnswer: null,
+                imageUrls: null,
+                imageDataBase64: null,
+                timeSpent: null // 暂时设置为 null
+            });
         }
+
       } else if (q.type === 'application') {
-        // 处理解答题的图片上传
+        // Always include application questions. Handle images or text answer.
          const images = uploadedImages.value[q.id] || [];
+
+         // If there are uploaded images, create an entry for each image with base64
         if (images.length > 0) {
-          images.forEach(image => {
+           images.forEach(image => {
              submissionData.applicationAnswerDetails.push({
               queSort: q.number,
-              stuAnswer: null, // 暂时设置为 null
-              imageUrls: null, // 暂时设置为 null
-              imageDataBase664: image.base64, // 使用存储的base64编码
+              stuAnswer: null, // stuAnswer is null when submitting image for application
+              imageUrls: null,
+              imageDataBase64: image.base64, // Use stored base64 encoding
               timeSpent: null // 暂时设置为 null
             });
           });
-        } else if (q.selectedAnswer) {
-             // 如果有文本答案，处理文本答案 (如果解答题支持文本输入)
-             // 注意：根据你的需求，解答题目前主要支持图片上传，
-             // 如果有文本输入的需求，需要在这里添加处理逻辑
-              console.warn(`Question ${q.number} (application) contains non-image answer, text submission not implemented.`);
+        } else if (q.selectedAnswer && typeof q.selectedAnswer === 'string' && q.selectedAnswer.trim() !== '') {
+            // If there is a text answer, include it. Assuming application supports text.
+             submissionData.applicationAnswerDetails.push({
+                queSort: q.number,
+                stuAnswer: q.selectedAnswer.trim(), // Include text answer
+                imageUrls: null,
+                imageDataBase64: null,
+                timeSpent: null // 暂时设置为 null
+            });
+        } else {
+            // If no image and no text answer, include with nulls
+             submissionData.applicationAnswerDetails.push({
+                queSort: q.number,
+                stuAnswer: null,
+                imageUrls: null,
+                imageDataBase64: null,
+                timeSpent: null // 暂时设置为 null
+            });
         }
       }
     });

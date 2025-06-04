@@ -14,17 +14,46 @@
     </view>
 
     <!-- 页面内容区域 -->
-    <view class="content" :style="{ paddingTop: headerHeight }">
-      <!-- 考试记录的具体内容将稍后添加 -->
-      <text>考试记录内容区域</text>
-    </view>
+    <scroll-view 
+      scroll-y 
+      class="record-scroll"
+      :style="{ paddingTop: headerHeight }"
+    >
+      <view v-if="examRecordStore.loading" class="loading">
+        <text>加载中...</text>
+      </view>
+      <view v-else-if="examRecordStore.error" class="error">
+        <text>{{ examRecordStore.error }}</text>
+      </view>
+      <view v-else-if="examRecordStore.examRecordList.length === 0" class="empty">
+        <text>暂无考试记录</text>
+      </view>
+      <view v-else class="record-items">
+        <view 
+          v-for="record in examRecordStore.examRecordList" 
+          :key="record.recordId"
+          class="record-item"
+          @click="goToRecordDetail(record)"
+        >
+          <view class="record-info">
+            <text class="record-title">{{ record.paperName }}</text>
+            <text class="record-score">总分：{{ record.totalScore || 'N/A' }}分</text>
+            <text class="record-time">开始时间：{{ record.startTime }}</text>
+          </view>
+          <uni-icons type="right" size="16" color="#999"></uni-icons>
+        </view>
+      </view>
+    </scroll-view>
   </view>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
+import { useExamRecordStore } from '@/stores/examRecord';
 // uni-icons will be automatically imported via easycom
+
+const examRecordStore = useExamRecordStore();
 
 // 获取胶囊按钮位置信息和状态栏高度（用于计算自定义头部高度）
 const menuButtonHeight = ref(0);
@@ -63,8 +92,25 @@ const goBack = () => {
   uni.navigateBack();
 };
 
-onLoad(() => {
+// 跳转到考试记录详情（待实现）
+const goToRecordDetail = (record) => {
+  console.log('Navigate to record detail:', record);
+  // TODO: Implement navigation to record detail page, passing record.recordId
+};
+
+onLoad(async () => {
   console.log('Exam Record Page Loaded');
+  const studentId = uni.getStorageSync('id'); // Get studentId from local storage
+  if (studentId) {
+    await examRecordStore.fetchExamRecords(studentId); // Fetch records
+  } else {
+    console.error('Student ID not found in local storage.');
+    examRecordStore.error = '无法获取学生ID，请尝试重新登录。';
+     uni.showToast({
+      title: examRecordStore.error,
+      icon: 'none'
+    });
+  }
 });
 
 onMounted(() => {
@@ -88,10 +134,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20rpx; /* Add horizontal padding */
+  padding: 0 20rpx;
   width: 100%;
   box-sizing: border-box;
-  background: linear-gradient(135deg, #f8f8ff 0%, #e0e7ff 100%); /* Background color similar to other pages */
+  background: linear-gradient(135deg, #f8f8ff 0%, #e0e7ff 100%);
 
   position: fixed;
   top: 0;
@@ -115,7 +161,7 @@ onMounted(() => {
 }
 
 .header-title {
-  font-size: 36rpx; /* Adjust size as needed */
+  font-size: 36rpx;
   font-weight: bold;
   color: #333;
 }
@@ -129,7 +175,7 @@ onMounted(() => {
 }
 
 .back-button {
-  width: 60rpx; /* Set a fixed width for the back button area */
+  width: 60rpx;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -138,12 +184,53 @@ onMounted(() => {
 }
 
 /* 页面内容区域样式 */
-.content {
-  flex: 1;
-  width: 100%;
+.record-scroll {
+  height: 100vh;
   box-sizing: border-box;
   /* padding-top is applied via :style to account for header height */
   overflow-y: auto; /* Enable scrolling for content */
+}
+
+.record-items {
+  padding: 15px;
+}
+
+.record-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px;
+  margin-bottom: 10px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  
+  .record-info {
+    flex: 1;
+    margin-right: 10px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .record-title {
+    display: block;
+    font-size: 16px;
+    color: #333;
+    margin-bottom: 5px;
+  }
+
+  .record-score, .record-time {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 3px;
+    &:last-child { margin-bottom: 0; }
+  }
+}
+
+.loading, .error, .empty {
+  padding: 20px;
+  text-align: center;
+  color: #999;
 }
 
 </style> 
