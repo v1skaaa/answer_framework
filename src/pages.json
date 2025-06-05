@@ -70,6 +70,13 @@
 			}
 		},
 		{
+			"path": "pages/exam/analysis/index",
+			"style": {
+				"navigationBarTitleText": "题目解析",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/mine/detail/index",
 			"style": {
 				"navigationBarTitleText": "个人主页",

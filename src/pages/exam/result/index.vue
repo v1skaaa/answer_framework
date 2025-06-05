@@ -13,27 +13,27 @@
 
     <!-- Result Summary -->
     <view class="result-summary">
-      <view class="paper-title">试卷：{{ paperTitle }}</view>
+      <view class="paper-title">试卷：{{ examStore.paperTitle }}</view>
       <view class="score-section">
         <view class="score-circle">
-          <text class="score">{{ score }}</text>
-          <text class="total-score">/{{ totalScore }}</text>
+          <text class="score">{{ examStore.score }}</text>
+          <text class="total-score">/{{ examStore.totalScore }}</text>
         </view>
         <text class="score-label">得分</text>
       </view>
-      <view class="time-spent">耗时：{{ timeSpent }}min</view>
+      <view class="time-spent">耗时：{{ examStore.timeSpent }}min</view>
     </view>
 
     <!-- Question Status Overview -->
     <scroll-view class="question-status-area" scroll-y>
-      <view class="question-type-section" v-for="(type, typeIndex) in questionTypes" :key="typeIndex">
+      <view class="question-type-section" v-for="(type, typeIndex) in examStore.resultQuestionSummary" :key="typeIndex">
         <text class="type-title">{{ type.name }} (共{{ type.count }}题)</text>
         <view class="question-number-list">
           <view
             class="question-number-item"
             v-for="(question, qIndex) in type.questions"
             :key="qIndex"
-            :class="{'correct': question.status === 'correct', 'incorrect': question.status === 'incorrect', 'unanswered': question.status === 'unanswered'}"
+            :class="{'correct': question.status === 'correct', 'incorrect': question.status === 'incorrect', 'unanswered': question.status === 'unanswered', 'answered': question.status === 'answered'}"
              @click="goToQuestionAnalysis(question.originalIndex)"
           >
             {{ question.number }}
@@ -43,8 +43,15 @@
     </scroll-view>
 
     <!-- Analysis Button -->
-    <view class="analysis-button-container">
-        <button class="analysis-button" @click="viewAnalysis">题目解析</button>
+    <view class="navigation-buttons">
+        <view class="dual-button-container">
+            <button class="nav-button prev-button" @click="goToHome">
+                返回主界面
+            </button>
+            <button class="nav-button next-button" @click="viewAnalysis">
+                题目解析
+            </button>
+        </view>
     </view>
   </view>
 </template>
@@ -52,7 +59,14 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
+import { useExamStore } from '@/stores/exam';
 // uni-icons will be automatically imported via easycom
+
+// 获取考试 store
+const examStore = useExamStore();
+
+// 存储 recordId
+const currentRecordId = ref(null);
 
 // 获取胶囊按钮位置信息和状态栏高度
 const menuButtonHeight = ref(0);
@@ -98,125 +112,6 @@ const containerPaddingTop = computed(() => {
   return '0px'; // Default
 });
 
-// Virtual Data (Replace with actual data from previous page)
-const paperTitle = ref('模拟试卷 XXX');
-const score = ref(7);
-const totalScore = ref(100);
-const timeSpent = ref(71);
-
-// Example Data Structure for questionTypes (Based on the answer card structure)
-const questionTypes = ref([]);
-
-// Map status to visual style
-// correct: green
-// incorrect: red
-// unanswered: white (default/original)
-
-// Function to process data received from the previous page
-const processResultData = (data) => {
-  console.log('Received data:', data);
-  if (!data || !data.userAnswer || !data.questions) {
-      console.error('Invalid data received for result page');
-      // Load mock data if no data is received
-      loadMockData();
-      return;
-  }
-
-  paperTitle.value = data.paperTitle || '试卷名称';
-  totalScore.value = data.totalScore || 100; // Assuming total score is passed or calculated
-  timeSpent.value = Math.floor((Date.now() - data.startTime) / 60000); // Calculate time spent in minutes
-
-  // --- Calculate Score and Question Status ---
-  let calculatedScore = 0;
-  const processedQuestionTypes = {};
-
-  data.questions.forEach((q, index) => {
-      const userAnswer = data.userAnswer.find(ua => ua.id === q.id);
-      let status = 'unanswered'; // Default status
-
-      if (userAnswer && userAnswer.selectedAnswer) {
-          // Assuming q.correctAnswer exists in the original questions data
-          if (q.type === 'choice') { // Only score choice questions for simplicity in mock data
-              if (userAnswer.selectedAnswer === q.correctAnswer) {
-                  status = 'correct';
-                  calculatedScore += q.score || 5; // Assuming a score for each question
-              } else {
-                  status = 'incorrect';
-              }
-          } else { // For fill and text questions, just mark as answered if there is an answer
-               status = 'answered'; // Use answered status for non-choice if any answer is present
-          }
-      }
-
-      // Structure for displaying in the result page
-      const questionResult = {
-          number: q.number,
-          originalIndex: index, // Store original index for navigation
-          status: status,
-          answered: !!(userAnswer && userAnswer.selectedAnswer) // For display similar to answer card
-      };
-
-      if (!processedQuestionTypes[q.type]) {
-          processedQuestionTypes[q.type] = { name: q.type === 'choice' ? '选择题' : q.type === 'fill' ? '填空题' : '解答题', count: 0, questions: [] };
-      }
-      processedQuestionTypes[q.type].count++;
-      processedQuestionTypes[q.type].questions.push(questionResult);
-  });
-
-  score.value = calculatedScore;
-
-  // Convert object to array and order
-    const orderedTypes = [];
-    if (processedQuestionTypes['choice']) orderedTypes.push(processedQuestionTypes['choice']);
-    if (processedQuestionTypes['fill']) orderedTypes.push(processedQuestionTypes['fill']);
-    if (processedQuestionTypes['text']) orderedTypes.push(processedQuestionTypes['text']);
-    // Add any other types
-    for (const typeKey in processedQuestionTypes) {
-        if (!['choice', 'fill', 'text'].includes(typeKey)) {
-            orderedTypes.push(processedQuestionTypes[typeKey]);
-        }
-    }
-    questionTypes.value = orderedTypes;
-
-};
-
-// Mock Data Load (for testing if no data is passed)
-const loadMockData = () => {
-    paperTitle.value = '模拟试卷（无数据）';
-    score.value = 10;
-    totalScore.value = 150;
-    timeSpent.value = 0;
-    questionTypes.value = [
-        { name: '选择题', count: 9, questions: [
-            { number: 1, originalIndex: 0, status: 'correct' },
-            { number: 2, originalIndex: 1, status: 'incorrect' },
-            { number: 3, originalIndex: 2, status: 'unanswered' },
-            { number: 4, originalIndex: 3, status: 'correct' },
-            { number: 5, originalIndex: 4, status: 'incorrect' },
-            { number: 6, originalIndex: 5, status: 'correct' },
-            { number: 7, originalIndex: 6, status: 'unanswered' },
-            { number: 8, originalIndex: 7, status: 'incorrect' },
-            { number: 9, originalIndex: 8, status: 'correct' },
-        ]},
-         { name: '填空题', count: 6, questions: [
-            { number: 10, originalIndex: 9, status: 'answered' },
-            { number: 11, originalIndex: 10, status: 'unanswered' },
-            { number: 12, originalIndex: 11, status: 'answered' },
-            { number: 13, originalIndex: 12, status: 'unanswered' },
-            { number: 14, originalIndex: 13, status: 'answered' },
-            { number: 15, originalIndex: 14, status: 'unanswered' },
-        ]},
-         { name: '解答题', count: 5, questions: [
-            { number: 16, originalIndex: 15, status: 'answered' },
-            { number: 17, originalIndex: 16, status: 'unanswered' },
-            { number: 18, originalIndex: 17, status: 'answered' },
-            { number: 19, originalIndex: 18, status: 'unanswered' },
-            { number: 20, originalIndex: 19, status: 'answered' },
-        ]},
-    ];
-};
-
-
 // Go back to previous page
 const goBack = () => {
   uni.navigateBack();
@@ -226,49 +121,64 @@ const goBack = () => {
 const goToQuestionAnalysis = (index) => {
   console.log('Go to analysis for question index:', index);
   // TODO: Implement navigation to analysis page/section
+  
+  // 获取被点击题目的ID
+  // const questionId = examStore.questions[index]?.id;
+  
+  if (currentRecordId.value) {
+      uni.navigateTo({
+          url: `/pages/exam/analysis/index?recordId=${currentRecordId.value}`
+      });
+  } else {
+      console.error('无法跳转到题目解析：缺少 recordId');
+      uni.showToast({
+          title: '无法查看解析',
+          icon: 'none'
+      });
+  }
 };
 
 // View full analysis (Placeholder)
 const viewAnalysis = () => {
   console.log('View full analysis clicked');
    // TODO: Implement full analysis view or section
+   
+   // 默认跳转到第一个题目的解析
+   // const firstQuestionId = examStore.questions[0]?.id;
+
+   if (currentRecordId.value) {
+       uni.navigateTo({
+           url: `/pages/exam/analysis/index?recordId=${currentRecordId.value}`
+       });
+   } else {
+       console.error('无法跳转到题目解析：缺少 recordId');
+       uni.showToast({
+           title: '无法查看解析',
+           icon: 'none'
+       });
+   }
+};
+
+// Navigate to home page
+const goToHome = () => {
+  uni.reLaunch({
+    url: '/pages/index/index'
+  });
 };
 
 // Receive data when page is loaded
 onLoad((options) => {
-    // For uni-app using event channel via options.eventChannel
-    if (options.eventChannel) {
-      options.eventChannel.once('acceptResultData', (data) => {
-        processResultData(data);
-      });
+    console.log('result: Page onLoad', options);
+    if (options && options.recordId) {
+        const recordId = options.recordId;
+        currentRecordId.value = recordId; // 存储 recordId
+        console.log('result: Received recordId from options:', recordId);
+        examStore.loadExamDetails(recordId);
     } else {
-      console.warn('No eventChannel received, loading mock data or handling appropriately.');
-      // Depending on your app flow, you might want to load mock data or show an error
-      loadMockData();
+        console.warn('result: No recordId received from options, loading mock data.');
+        examStore.loadMockDataForResult(); // Load mock data if no recordId
     }
-
-    // If using URL parameters (less ideal for complex objects)
-    // if(options.data) {
-    //     try {
-    //         const data = JSON.parse(decodeURIComponent(options.data));
-    //         processResultData(data);
-    //     } catch (e) {
-    //         console.error('Failed to parse URL data', e);
-    //         loadMockData(); // Load mock data on error
-    //     }
-    // } else {
-    //     loadMockData(); // Load mock data if no data is passed via URL
-    // }
-
-     // If no data is received after a short delay, load mock data
-     setTimeout(() => {
-        if (questionTypes.value.length === 0) {
-            console.warn('No result data received, loading mock data.');
-            loadMockData();
-        }
-    }, 1000); // Adjust delay as needed
 });
-
 
 </script>
 
@@ -391,6 +301,7 @@ onLoad((options) => {
     flex: 1; /* Allow scroll view to take available space */
     padding-right: 10rpx; /* Add some padding for scrollbar */
     box-sizing: border-box;
+    padding-bottom: 160rpx; /* Add sufficient padding to the scroll-view */
 }
 
 .question-type-section {
@@ -457,18 +368,46 @@ onLoad((options) => {
 /* .unanswered status uses the default style */
 
 /* Analysis Button */
-.analysis-button-container {
-    padding: 20rpx;
-    border-top: 1rpx solid #eee; /* Optional separator */
+.navigation-buttons {
+    position: fixed;
+    bottom: 40rpx;
+    left: 0;
+    right: 0;
+    padding: 0 40rpx;
+    z-index: 99;
 }
 
-.analysis-button {
-  background-color: #007aff; /* Example button color */
-  color: #fff;
-  font-size: 32rpx;
-  padding: 15rpx 0;
-  border-radius: 50rpx;
-  text-align: center;
-  cursor: pointer;
+.dual-button-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 40rpx;
+}
+
+.nav-button {
+    flex: 1;
+    height: 88rpx;
+    border-radius: 44rpx;
+    font-size: 32rpx;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+
+    &:active {
+        transform: scale(0.98);
+    }
+}
+
+.prev-button {
+    background-color: #f5f5f5;
+    color: #666;
+}
+
+.next-button {
+    background-color: #007aff;
+    color: #fff;
 }
 </style> 

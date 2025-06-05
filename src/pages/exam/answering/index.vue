@@ -100,7 +100,7 @@
                                         :key="index"
                                     >
                                         <image 
-                                            :src="image.url" 
+                                            :src="`data:image/jpeg;base64,${image.base64}`" 
                                             mode="aspectFill" 
                                             class="preview-image"
                                             @click="previewImage(index)"
@@ -195,7 +195,7 @@
                                     :key="index"
                                 >
                                     <image 
-                                        :src="image.url" 
+                                        :src="`data:image/jpeg;base64,${image.base64}`" 
                                         mode="aspectFill" 
                                         class="preview-image"
                                         @click="previewImage(index)"
@@ -581,7 +581,7 @@ const chooseAndUploadImage = async () => {
 
 // 预览图片
 const previewImage = (index) => {
-    const images = examStore.currentQuestionImages.map(img => img.url);
+    const images = examStore.currentQuestionImages.map(img => `data:image/jpeg;base64,${img.base64}`);
     uni.previewImage({
         urls: images,
         current: index

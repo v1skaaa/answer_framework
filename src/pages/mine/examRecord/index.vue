@@ -51,9 +51,11 @@
 import { ref, computed, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useExamRecordStore } from '@/stores/examRecord';
+import { useExamStore } from '@/stores/exam'; // 导入 exam store
 // uni-icons will be automatically imported via easycom
 
 const examRecordStore = useExamRecordStore();
+const examStore = useExamStore(); // 使用 exam store
 
 // 获取胶囊按钮位置信息和状态栏高度（用于计算自定义头部高度）
 const menuButtonHeight = ref(0);
@@ -92,10 +94,23 @@ const goBack = () => {
   uni.navigateBack();
 };
 
-// 跳转到考试记录详情（待实现）
-const goToRecordDetail = (record) => {
-  console.log('Navigate to record detail:', record);
-  // TODO: Implement navigation to record detail page, passing record.recordId
+// 跳转到考试记录详情
+const goToRecordDetail = async (record) => {
+  try {
+    uni.showLoading({ title: '加载中...' });
+    await examStore.loadExamDetails(record.recordId);
+    uni.hideLoading();
+    uni.navigateTo({
+      url: `/pages/exam/analysis/index?recordId=${record.recordId}`
+    });
+  } catch (error) {
+    uni.hideLoading();
+    uni.showToast({
+      title: '加载考试详情失败',
+      icon: 'none'
+    });
+    console.error('Failed to load exam details:', error);
+  }
 };
 
 onLoad(async () => {

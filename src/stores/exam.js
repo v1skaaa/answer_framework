@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 import { getQuestionList } from '@/api/exam'
 import { submitExamComplete } from '@/api/exam'
 import { useUserStore } from '@/stores/user'
+import { getExamDetails } from '@/api/exam'
 
 // 解析数学公式文本的辅助函数
 const parseMathText = (text) => {
@@ -140,6 +141,10 @@ export const useExamStore = defineStore('exam', () => {
   const uploadedImages = ref({}) // 存储每个题目的上传图片
   const paperId = ref(null) // 新增存储试卷ID的状态
   const favoritedQuestionIds = ref(new Set()) // 存储被收藏题目的ID集合
+  const resultQuestionSummary = ref([])
+  const score = ref(0)
+  const totalScore = ref(0)
+  const timeSpent = ref(0)
 
   // 计算属性
   const totalQuestions = computed(() => questions.value.length)
@@ -516,7 +521,7 @@ export const useExamStore = defineStore('exam', () => {
           });
           // 导航到结果页面或其他后续页面
             uni.redirectTo({
-            url: '/pages/exam/result/index' // 请替换为你的实际结果页路径
+            url: '/pages/exam/result/index?recordId=' + response.result // 请替换为你的实际结果页路径，并加上recordId参数
           });
       } else {
          // 处理提交失败
@@ -706,6 +711,217 @@ export const useExamStore = defineStore('exam', () => {
     }
   }
 
+  // 新增获取考试详情的 action
+  const loadExamDetails = async (recordId) => {
+    console.log('loadExamDetails called with recordId:', recordId);
+    if (!recordId) {
+      console.warn('No recordId provided for loading exam details.');
+      // Optionally load mock data or show an error
+      loadMockDataForResult();
+      return;
+    }
+
+    try {
+      console.log('Calling getExamDetails API...');
+      const res = await getExamDetails(recordId);
+      console.log('getExamDetails API response:', res);
+
+      if (res.flag === '1' && res.result) {
+        console.log('Exam details API call successful, res.result:', res.result);
+
+        const allQuestions = [];
+        let totalScoreAchieved = 0;
+        let totalPaperScore = 0; // Calculate total possible score from paper
+
+        // Combine and process all question types
+        const processQuestions = (questions, typeName, typeValue) => {
+          if (questions) {
+            questions.forEach(item => {
+              let status = 'unanswered';
+              let studentScore = 0; // Score obtained by the student for this question
+
+              // Determine status and calculate student score
+              if (typeValue === 1) { // Choice questions
+                if (item.detailRecord && item.detailRecord.stuAnswer !== null) {
+                   if (item.detailRecord.stuAnswer === item.question.correctAnswer) {
+                      status = 'correct';
+                      // Use question.score if detailRecord.score is null
+                       studentScore = item.detailRecord.score !== null ? item.detailRecord.score : (item.question.score || 0);
+                   } else {
+                       status = 'incorrect';
+                       studentScore = 0;
+                   }
+                } else {
+                   status = 'unanswered';
+                   studentScore = 0;
+                }
+                 totalPaperScore += item.question.score || 0;
+              } else { // Fill-in-the-blank (2) and Application (3) questions
+                 // For fill-in-the-blank and application questions, status is always unanswered (white circle)
+                 status = 'unanswered';
+                 // Use detailRecord.score if available, otherwise 0 for now
+                 studentScore = item.detailRecord && item.detailRecord.score !== null ? item.detailRecord.score : 0;
+                 totalPaperScore += item.question.score || 0; // Add question's potential score to total
+              }
+
+              // Add student's score for this question to the total achieved score
+               totalScoreAchieved += studentScore;
+
+              const processedQuestion = {
+                id: item.question.qaId || item.question.qbId || 'unknown-' + item.question.queSort, // Use qaId or qbId as question ID
+                number: item.question.queSort,
+                type: typeName,
+                originalType: typeValue, // Store original type value
+                textSegments: item.question.queStem ? parseMathText(item.question.queStem) : [],
+                options: typeValue === 1 ? (
+                  [
+                    { label: 'A', segments: item.question.optionA ? parseMathText(item.question.optionA) : [], value: 'A' },
+                    { label: 'B', segments: item.question.optionB ? parseMathText(item.question.optionB) : [], value: 'B' },
+                    { label: 'C', segments: item.question.optionC ? parseMathText(item.question.optionC) : [], value: 'C' },
+                    { label: 'D', segments: item.question.optionD ? parseMathText(item.question.optionD) : [], value: 'D' },
+                  ].filter(opt => opt.segments && opt.segments.length > 0) // Filter out options with no content
+                ) : undefined,
+                stuAnswer: item.detailRecord ? item.detailRecord.stuAnswer : null,
+                correctAnswer: item.question.correctAnswer || null,
+                analysis: item.question.analysis || null,
+                solution: item.question.solution || null,
+                status: status, // 'correct', 'incorrect', 'unanswered', 'answered'
+                studentScore: studentScore, // Score achieved for this question
+                questionScore: item.question.score || 0, // Max score for this question
+                imageData: item.detailRecord ? item.detailRecord.imageData : [],
+                imageUrls: item.detailRecord ? item.detailRecord.imageUrls : null,
+                 detailRecordId: item.detailRecord ? item.detailRecord.detId : null, // Add detailRecordId
+              };
+
+              // Log the processed question data for debugging
+              console.log(`Processed Question ${processedQuestion.number}:`, processedQuestion);
+              console.log(`Analysis for Question ${processedQuestion.number}:`, processedQuestion.analysis);
+              console.log(`Analysis Segments for Question ${processedQuestion.number}:`, processedQuestion.analysisSegments);
+
+              allQuestions.push(processedQuestion);
+            });
+          }
+        };
+
+        processQuestions(res.result.choiceAnswers, '选择题', 1);
+        processQuestions(res.result.blankAnswers, '填空题', 2);
+        processQuestions(res.result.applicationAnswers, '解答题', 3);
+
+        // Sort all questions by queSort
+        allQuestions.sort((a, b) => a.number - b.number);
+
+        // Group sorted questions by type for the result summary display
+        const resultQuestionSummaryGrouped = {};
+        allQuestions.forEach(q => {
+          if (!resultQuestionSummaryGrouped[q.type]) {
+            resultQuestionSummaryGrouped[q.type] = { 
+              name: q.type,
+              count: 0,
+              questions: []
+            };
+          }
+          resultQuestionSummaryGrouped[q.type].count++;
+          resultQuestionSummaryGrouped[q.type].questions.push({
+            number: q.number,
+            originalIndex: allQuestions.indexOf(q), // Store original index for potential analysis navigation
+            status: q.status // Use the determined status
+          });
+        });
+
+         // Convert grouped object to ordered array
+        const orderedResultTypes = [];
+        if (resultQuestionSummaryGrouped['选择题']) orderedResultTypes.push(resultQuestionSummaryGrouped['选择题']);
+        if (resultQuestionSummaryGrouped['填空题']) orderedResultTypes.push(resultQuestionSummaryGrouped['填空题']);
+        if (resultQuestionSummaryGrouped['解答题']) orderedResultTypes.push(resultQuestionSummaryGrouped['解答题']);
+        // Add any other types if they exist
+        for (const typeKey in resultQuestionSummaryGrouped) {
+            if (!['选择题', '填空题', '解答题'].includes(typeKey)) {
+                orderedResultTypes.push(resultQuestionSummaryGrouped[typeKey]);
+            }
+        }
+
+        // Update store state with fetched data
+        // Assuming paperTitle comes from elsewhere or needs to be added to the API response if not there
+        // For now, using a placeholder or trying to derive from questions if possible
+        paperTitle.value = res.result.paperQues ? res.result.paperQues.paperName : '考试试卷'; // Assuming paper name is available here
+        score.value = totalScoreAchieved; // Use calculated score
+        totalScore.value = totalPaperScore; // Use calculated total paper score
+        timeSpent.value = res.result.examRecord && res.result.examRecord.timeSpent !== null ? Math.floor(res.result.examRecord.timeSpent / 60000) : 0; // Use timeSpent from record if available, in minutes
+        resultQuestionSummary.value = orderedResultTypes; // Update the new state variable
+
+        // Store all questions for potential analysis view later
+        questions.value = allQuestions; // Reuse the existing questions state to store full question data
+
+      } else {
+        console.error('Failed to load exam details:', res.msg);
+        // Optionally load mock data or show an error
+         loadMockDataForResult();
+      }
+
+    } catch (error) {
+      console.error('Error fetching exam details:', error);
+      // Optionally load mock data or show an error
+       loadMockDataForResult();
+    }
+  };
+
+  // Mock data for result page (different from answering page mock)
+  const loadMockDataForResult = () => {
+      paperTitle.value = '模拟试卷（无数据）';
+      score.value = 10;
+      totalScore.value = 150;
+      timeSpent.value = 0;
+      resultQuestionSummary.value = [
+          { name: '选择题', count: 9, questions: [
+              { number: 1, originalIndex: 0, status: 'correct' },
+              { number: 2, originalIndex: 1, status: 'incorrect' },
+              { number: 3, originalIndex: 2, status: 'unanswered' },
+              { number: 4, originalIndex: 3, status: 'correct' },
+              { number: 5, originalIndex: 4, status: 'incorrect' },
+              { number: 6, originalIndex: 5, status: 'correct' },
+              { number: 7, originalIndex: 6, status: 'unanswered' },
+              { number: 8, originalIndex: 7, status: 'incorrect' },
+              { number: 9, originalIndex: 8, status: 'correct' },
+          ]},
+           { name: '填空题', count: 6, questions: [
+              { number: 10, originalIndex: 9, status: 'answered' },
+              { number: 11, originalIndex: 10, status: 'unanswered' },
+              { number: 12, originalIndex: 11, status: 'answered' },
+              { number: 13, originalIndex: 12, status: 'unanswered' },
+              { number: 14, originalIndex: 13, status: 'answered' },
+              { number: 15, originalIndex: 14, status: 'unanswered' },
+          ]},
+           { name: '解答题', count: 5, questions: [
+              { number: 16, originalIndex: 15, status: 'answered' },
+              { number: 17, originalIndex: 16, status: 'unanswered' },
+              { number: 18, originalIndex: 17, status: 'answered' },
+              { number: 19, originalIndex: 18, status: 'unanswered' },
+              { number: 20, originalIndex: 19, status: 'answered' },
+          ]},
+      ];
+
+       // Populate questions state with mock data structure for potential analysis
+        questions.value = resultQuestionSummary.value.flatMap(type => type.questions.map(q => ({
+            id: 'mock-id-' + q.number,
+            number: q.number,
+            type: type.name,
+            originalType: type.name === '选择题' ? 1 : (type.name === '填空题' ? 2 : 3),
+            textSegments: [{ type: 'text', content: 'Mock Question ' + q.number }],
+            options: type.originalType === 1 ? [] : undefined,
+            stuAnswer: q.status === 'unanswered' ? null : 'mock answer',
+            correctAnswer: q.status === 'correct' ? 'mock answer' : 'other answer',
+            analysis: 'Mock analysis for question ' + q.number,
+            solution: 'Mock solution for question ' + q.number,
+            status: q.status,
+            studentScore: q.status === 'correct' ? 5 : 0,
+            questionScore: 5,
+            imageData: [],
+            imageUrls: null,
+            detailRecordId: 'mock-detail-id-' + q.number
+        })));
+
+  };
+
   return {
     // 状态
     questions,
@@ -717,6 +933,10 @@ export const useExamStore = defineStore('exam', () => {
     uploadedImages,
     paperId,
     favoritedQuestionIds,
+    resultQuestionSummary,
+    score,
+    totalScore,
+    timeSpent,
     
     // 计算属性
     totalQuestions,
@@ -739,6 +959,8 @@ export const useExamStore = defineStore('exam', () => {
     uploadImage,
     removeImage,
     clearImages,
-    toggleFavorite
+    toggleFavorite,
+    loadExamDetails,
+    loadMockDataForResult
   }
 }) 

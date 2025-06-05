@@ -31,4 +31,13 @@ export function getStudentExamRecords(studentId) {
   });
 }
 
+// 根据考试记录ID获取详细考试信息
+export const getExamDetails = (recordId) => {
+  return apiService({
+    url: `/api/tenant/exam/exam-details`,
+    method: 'get',
+    params: { recordId }
+  });
+};
+
 // You can add other exam related API functions here later 
