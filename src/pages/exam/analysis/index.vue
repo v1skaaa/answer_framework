@@ -96,14 +96,16 @@
                         <template v-else-if="examStore.currentQuestion.originalType === 2 || examStore.currentQuestion.originalType === 3">
                              <view class="student-answer">
                                 <text class="answer-label">你的答案:</text>
-                                <template v-if="examStore.currentQuestion.imageData && examStore.currentQuestion.imageData.length > 0">
-                                     <view class="image-preview-list">
-                                         <view class="image-preview-item" v-for="(image, index) in examStore.currentQuestion.imageData" :key="index">
-                                             <image :src="image.url" mode="aspectFill" class="preview-image"></image>
-                                         </view>
-                                     </view>
+                                <template v-if="examStore.currentQuestion.imageUrls">
+                                    <view class="image-preview-list">
+                                        <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(examStore.currentQuestion.imageUrls) ? examStore.currentQuestion.imageUrls : [examStore.currentQuestion.imageUrls])" :key="index">
+                                            <image :src="imageUrl" mode="aspectFill" class="preview-image"></image>
+                                        </view>
+                                    </view>
                                 </template>
-                                <text v-else-if="examStore.currentQuestion.stuAnswer">{{ examStore.currentQuestion.stuAnswer }}</text>
+                                <template v-else-if="examStore.currentQuestion.stuAnswer">
+                                    <text>{{ examStore.currentQuestion.stuAnswer }}</text>
+                                </template>
                                 <text v-else>未作答</text>
                              </view>
                         </template>
@@ -188,14 +190,16 @@
                     <template v-else-if="examStore.currentQuestion.originalType === 2 || examStore.currentQuestion.originalType === 3">
                          <view class="student-answer">
                             <text class="answer-label">你的答案:</text>
-                            <template v-if="examStore.currentQuestion.imageData && examStore.currentQuestion.imageData.length > 0">
-                                 <view class="image-preview-list">
-                                     <view class="image-preview-item" v-for="(image, index) in examStore.currentQuestion.imageData" :key="index">
-                                         <image :src="image.url" mode="aspectFill" class="preview-image"></image>
-                                     </view>
-                                 </view>
+                            <template v-if="examStore.currentQuestion.imageUrls">
+                                <view class="image-preview-list">
+                                    <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(examStore.currentQuestion.imageUrls) ? examStore.currentQuestion.imageUrls : [examStore.currentQuestion.imageUrls])" :key="index">
+                                        <image :src="imageUrl" mode="aspectFill" class="preview-image"></image>
+                                    </view>
+                                </view>
                             </template>
-                            <text v-else-if="examStore.currentQuestion.stuAnswer">{{ examStore.currentQuestion.stuAnswer }}</text>
+                            <template v-else-if="examStore.currentQuestion.stuAnswer">
+                                <text>{{ examStore.currentQuestion.stuAnswer }}</text>
+                            </template>
                             <text v-else>未作答</text>
                          </view>
                     </template>

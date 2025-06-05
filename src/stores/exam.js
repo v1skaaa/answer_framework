@@ -768,10 +768,10 @@ export const useExamStore = defineStore('exam', () => {
                totalScoreAchieved += studentScore;
 
               const processedQuestion = {
-                id: item.question.qaId || item.question.qbId || 'unknown-' + item.question.queSort, // Use qaId or qbId as question ID
+                id: item.question.qaId || item.question.qbId || 'unknown-' + item.question.queSort,
                 number: item.question.queSort,
                 type: typeName,
-                originalType: typeValue, // Store original type value
+                originalType: typeValue,
                 textSegments: item.question.queStem ? parseMathText(item.question.queStem) : [],
                 options: typeValue === 1 ? (
                   [
@@ -779,19 +779,44 @@ export const useExamStore = defineStore('exam', () => {
                     { label: 'B', segments: item.question.optionB ? parseMathText(item.question.optionB) : [], value: 'B' },
                     { label: 'C', segments: item.question.optionC ? parseMathText(item.question.optionC) : [], value: 'C' },
                     { label: 'D', segments: item.question.optionD ? parseMathText(item.question.optionD) : [], value: 'D' },
-                  ].filter(opt => opt.segments && opt.segments.length > 0) // Filter out options with no content
+                  ].filter(opt => opt.segments && opt.segments.length > 0)
                 ) : undefined,
                 stuAnswer: item.detailRecord ? item.detailRecord.stuAnswer : null,
                 correctAnswer: item.question.correctAnswer || null,
                 analysis: item.question.analysis || null,
                 solution: item.question.solution || null,
-                status: status, // 'correct', 'incorrect', 'unanswered', 'answered'
-                studentScore: studentScore, // Score achieved for this question
-                questionScore: item.question.score || 0, // Max score for this question
-                imageData: item.detailRecord ? item.detailRecord.imageData : [],
+                status: status,
+                studentScore: studentScore,
+                questionScore: item.question.score || 0,
+                imageData: item.detailRecord && item.detailRecord.imageData && item.detailRecord.imageData.length > 0 ? item.detailRecord.imageData : [],
                 imageUrls: item.detailRecord ? item.detailRecord.imageUrls : null,
-                 detailRecordId: item.detailRecord ? item.detailRecord.detId : null, // Add detailRecordId
+                detailRecordId: item.detailRecord ? item.detailRecord.detId : null,
+                teacherComment: item.detailRecord ? item.detailRecord.teacherComment : null,
               };
+
+              // 如果有图片URL，将其添加到 uploadedImages 中
+              if (item.detailRecord && item.detailRecord.imageUrls) {
+                const questionId = processedQuestion.id;
+                if (!uploadedImages.value[questionId]) {
+                  uploadedImages.value[questionId] = [];
+                }
+                
+                // 将图片URL转换为图片数据对象
+                const imageUrls = Array.isArray(item.detailRecord.imageUrls) 
+                  ? item.detailRecord.imageUrls 
+                  : [item.detailRecord.imageUrls];
+                
+                imageUrls.forEach(url => {
+                  if (url) {
+                    uploadedImages.value[questionId].push({
+                      url: url,
+                      uploadTime: new Date().toISOString(),
+                      // 如果有 base64 数据，也保存下来
+                      base64: item.detailRecord.imageDataBase64 || null
+                    });
+                  }
+                });
+              }
 
               // Log the processed question data for debugging
               console.log(`Processed Question ${processedQuestion.number}:`, processedQuestion);
