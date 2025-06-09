@@ -1,7 +1,7 @@
 <template>
   <view class="container">
     <view class="header" @click="goToPersonalDetail">
-      <image class="avatar" :src="'/static/images/default-avatar.png'" mode="aspectFill"></image>
+      <image class="avatar" :src="'/static/images/u-are-the-best.jpg'" mode="aspectFill"></image>
       <text class="username">{{ userInfo.nickname || userInfo.username }}</text>
     </view>
     <view class="stats-bar">

@@ -231,12 +231,22 @@ export const useExamStore = defineStore('exam', () => {
         // Process choice questions
         if (res.result.choiceQuestions) {
           res.result.choiceQuestions.forEach((item) => {
+            const questionTextSegments = item.queStem ? parseMathText(item.queStem) : [];
+
+            // 如果是多选题 (choiceType === 2)，在题干前面添加提示
+            if (item.choiceType === 2) {
+              questionTextSegments.unshift({
+                type: 'multipleChoicePrefix',
+                content: '(多选题)'
+              });
+            }
+
             allQuestions.push({
               id: item.qcId,
               number: item.queSort,
               type: 'choice',
               choiceType: item.choiceType,
-              textSegments: item.queStem ? parseMathText(item.queStem) : [],
+              textSegments: questionTextSegments,
               options: [
                 { label: 'A', segments: item.optionA ? parseMathText(item.optionA) : [], value: 'A' },
                 { label: 'B', segments: item.optionB ? parseMathText(item.optionB) : [], value: 'B' },

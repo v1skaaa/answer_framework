@@ -10,7 +10,7 @@
         <view class="top-item">
           <text class="top-label">考试倒计时</text>
           <text class="top-desc">距离高考还有</text>
-          <text class="top-value">1天</text>
+          <text class="top-value">{{ gaokaoCountdown }}</text>
         </view>
       </view>
       <view class="middle-card">
@@ -24,17 +24,17 @@
         </view>
       </view>
     </view>
-    <view class="section-title"><view class="bar"></view>每日推题</view>
-    <view class="recommend-list">
-      <view class="recommend-item" v-for="(item, index) in recommendList" :key="index" @click="goToQuestion(item)">
-        <view class="recommend-content">
-          <text class="recommend-title">{{item.title}}</text>
-          <text class="recommend-desc">{{item.desc}}</text>
+    <view class="section-title"><view class="bar"></view>优卷智推</view>
+    <view class="daily-recommend-card" @click="goToDailyRecommend">
+      <view class="card-left">
+        <text class="card-title">优卷智推，随师定练于时</text>
+        <view class="quick-exam-entry">
+          <text class="entry-text">快捷入口</text>
+          <uni-icons type="right" size="16" color="#666"></uni-icons>
         </view>
-        <view class="recommend-right">
-          <text class="recommend-difficulty" :class="'difficulty-' + item.level">{{item.levelText}}</text>
-          <uni-icons type="right" size="16" color="#999"></uni-icons>
-        </view>
+      </view>
+      <view class="card-right">
+        <image src="/static/right-cartoon.jpg" class="illustration"></image>
       </view>
     </view>
     <view class="section-title"><view class="bar"></view>最近做题</view>
@@ -57,7 +57,41 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 
-// 模拟推荐题目数据
+// 高考倒计时状态
+const gaokaoCountdown = ref('计算中...');
+
+const calculateGaokaoCountdown = () => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+
+  // 定义今年的高考开始和结束日期
+  const gaokaoStartThisYear = new Date(currentYear, 5, 7); // 6月7日 (月份从0开始，所以5代表6月)
+  const gaokaoEndThisYear = new Date(currentYear, 5, 9);   // 6月9日
+
+  // 确保日期对象是当日的开始时间，方便比较
+  gaokaoStartThisYear.setHours(0, 0, 0, 0);
+  gaokaoEndThisYear.setHours(23, 59, 59, 999);
+
+  if (now.getTime() < gaokaoStartThisYear.getTime()) {
+    // 情况一：在今年的高考开始前
+    const diffTime = gaokaoStartThisYear.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    gaokaoCountdown.value = `距离高考还有${diffDays}天`;
+  } else if (now.getTime() >= gaokaoStartThisYear.getTime() && now.getTime() <= gaokaoEndThisYear.getTime()) {
+    // 情况二：在高考期间
+    gaokaoCountdown.value = '高考中';
+  } else {
+    // 情况三：在今年的高考结束后，计算到明年的高考
+    const gaokaoStartNextYear = new Date(currentYear + 1, 5, 7);
+    gaokaoStartNextYear.setHours(0, 0, 0, 0);
+    const diffTime = gaokaoStartNextYear.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    gaokaoCountdown.value = `距离高考还有${diffDays}天`;
+  }
+};
+
+// 模拟推荐题目数据 (REMOVING THIS)
+/*
 const recommendList = ref([
   {
     id: 1,
@@ -81,6 +115,7 @@ const recommendList = ref([
     levelText: '困难'
   }
 ]);
+*/
 
 // 模拟最近做题数据
 const recentList = ref([
@@ -125,6 +160,10 @@ const goToTest = () => {
   uni.switchTab({ url: '/pages/test/index' })
 }
 
+const goToDailyRecommend = () => {
+  uni.navigateTo({ url: '/pages/recommend/index' })
+}
+
 onMounted(() => {
   // 检查是否登录
   const token = uni.getStorageSync('accessToken');
@@ -138,6 +177,8 @@ onMounted(() => {
   // loadStats();
   // loadRecommendList();
   // loadRecentList();
+
+  calculateGaokaoCountdown();
 });
 </script>
 
@@ -239,51 +280,49 @@ onMounted(() => {
   border-radius: 8rpx;
   margin-right: 16rpx;
 }
-.recommend-list {
-  background-color: #fff;
+.daily-recommend-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg,rgb(255, 254, 254) 0%,rgb(255, 255, 255) 100%); /* Light gradient background */
   border-radius: 20rpx;
-  padding: 0 20rpx;
+  padding: 25rpx;
   margin-bottom: 30rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
-  .recommend-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20rpx 0;
-    border-bottom: 1rpx solid #eee;
-    &:last-child { border-bottom: none; }
-    .recommend-content {
-      flex: 1;
-      padding-right: 20rpx;
-      .recommend-title {
-        font-size: 28rpx;
-        color: #333;
-        font-weight: bold;
-        margin-bottom: 8rpx;
-      }
-      .recommend-desc {
-        font-size: 24rpx;
-        color: #888;
-        display: -webkit-box;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 1;
-        overflow: hidden;
-      }
-    }
-    .recommend-right {
-      display: flex;
-      align-items: center;
-      .recommend-difficulty {
-        font-size: 22rpx;
-        padding: 4rpx 12rpx;
-        border-radius: 12rpx;
-        margin-right: 10rpx;
-        &.difficulty-easy { background-color: #e8f5e9; color: #4caf50; }
-        &.difficulty-medium { background-color: #fffbe0; color: #ffc107; }
-        &.difficulty-hard { background-color: #ffebee; color: #f44336; }
-      }
-    }
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.06);
+}
+.card-left {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1;
+}
+.card-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 10rpx;
+}
+.quick-exam-entry {
+  display: flex;
+  align-items: center;
+  font-size: 26rpx;
+  color: #666;
+  cursor: pointer;
+  .entry-text {
+    margin-right: 8rpx;
   }
+}
+.card-right {
+  width: 180rpx; /* Adjust as needed */
+  height: 220rpx; /* Adjust as needed */
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+.illustration {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 .recent-list {
   background-color: #fff;

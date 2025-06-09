@@ -18,9 +18,11 @@
       <!-- 将试卷名称放在内容区域的顶部 -->
       <view class="paper-title-in-content">{{ paper.title || '试卷详情' }}</view>
 
-      <view class="info-section" v-if="paper.difficulty !== undefined && paper.totalScore !== undefined">
-        <text class="info-item">本试卷难度{{ paper.difficulty }}</text>
-        <text class="info-item">总分{{ paper.totalScore }}分</text>
+      <view class="info-section">
+        <text class="info-item total-score-item" v-if="paper.totalScore !== undefined">总分：{{ paper.totalScore }}分</text>
+        <text class="info-item" v-if="paper.choiceCount !== undefined">选择题：{{ paper.choiceCount }}题</text>
+        <text class="info-item" v-if="paper.blankCount !== undefined">填空题：{{ paper.blankCount }}题</text>
+        <text class="info-item" v-if="paper.applicationCount !== undefined">解答题：{{ paper.applicationCount }}题</text>
       </view>
 
       <view class="question-breakdown-section" v-if="paper.parts && paper.parts.length > 0">
@@ -156,7 +158,10 @@ onLoad((options) => {
             difficulty: undefined,
             totalScore: undefined,
             parts: [],
-            id: null
+            id: null,
+            choiceCount: undefined,
+            blankCount: undefined,
+            applicationCount: undefined
         };
         uni.showToast({
             title: '未获取到试卷信息',
@@ -199,6 +204,9 @@ const paper = ref({
   totalScore: undefined, // Use undefined initially
   parts: [],
   id: null, // 试卷ID，等待API数据更新
+  choiceCount: undefined, // 选择题数量
+  blankCount: undefined,  // 填空题数量
+  applicationCount: undefined // 解答题数量
 });
 
 // 根据sourceId获取试卷详情并更新标题
@@ -211,7 +219,10 @@ const fetchPaperDetail = async (sourceId) => {
         difficulty: undefined,
         totalScore: undefined,
         parts: [],
-        id: null
+        id: null,
+        choiceCount: undefined,
+        blankCount: undefined,
+        applicationCount: undefined
     };
     return;
   }
@@ -222,6 +233,11 @@ const fetchPaperDetail = async (sourceId) => {
       paper.value.title = res.result.paperName; // Use paperName from API for title
       paper.value.totalScore = res.result.totalScore; // Update totalScore from API
       paper.value.id = res.result.paperId; // Store paperId
+      // 更新新的计数字段
+      paper.value.choiceCount = res.result.choiceCount;
+      paper.value.blankCount = res.result.blankCount;
+      paper.value.applicationCount = res.result.applicationCount;
+
       // Update other fields if API provides them
       // paper.value.difficulty = res.result.difficulty;
       // paper.value.parts = res.result.parts;
@@ -233,7 +249,10 @@ const fetchPaperDetail = async (sourceId) => {
             difficulty: undefined,
             totalScore: undefined,
             parts: [],
-            id: null
+            id: null,
+            choiceCount: undefined,
+            blankCount: undefined,
+            applicationCount: undefined
         };
         uni.showToast({
           title: res.msg || '获取试卷详情失败',
@@ -247,7 +266,10 @@ const fetchPaperDetail = async (sourceId) => {
         difficulty: undefined,
         totalScore: undefined,
         parts: [],
-        id: null
+        id: null,
+        choiceCount: undefined,
+        blankCount: undefined,
+        applicationCount: undefined
     };
     uni.showToast({
         title: '获取试卷详情异常',
@@ -431,7 +453,14 @@ onMounted(() => {
 
   &:last-child {
     margin-bottom: 0;
-  }
+  } 
+}
+
+.total-score-item {
+  font-size: 40rpx; /* 更大的字体 */
+  font-weight: bold; /* 加粗 */
+  color:rgb(76, 150, 189); /* 可以选择一个醒目的颜色，比如蓝色 */
+  margin-bottom: 25rpx; /* 增加底部间距以更好地区分 */
 }
 
 .question-breakdown-section {

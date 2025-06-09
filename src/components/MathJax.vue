@@ -264,8 +264,13 @@ export default {
 
 .math-content mjx-container {
     overflow: hidden;
+    margin:0px;
 }
 .mjx-chtml {
     letter-spacing: -0.5px; /* 微调字符间距 */
+}
+
+mjx-container[jax="SVG"][display="true"]{
+  margin:0px;
 }
 </style>

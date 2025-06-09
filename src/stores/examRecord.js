@@ -20,6 +20,7 @@ export const useExamRecordStore = defineStore('examRecord', () => {
            endTime: item.examRecord.endTime,
            status: item.examRecord.status,
            totalScore: item.paperQues ? item.paperQues.totalScore : 'N/A',
+           myScore: item.examRecord.totalScore,
            paperName: item.paperQues ? item.paperQues.paperName : '未知试卷名称',
         }));
         console.log('Fetched exam records:', examRecordList.value);

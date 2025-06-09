@@ -40,4 +40,15 @@ export const getExamDetails = (recordId) => {
   });
 };
 
+// 获取每日推题列表
+export function getPapersPushList(studentId) {
+  return apiService({
+    url: '/api/tenant/exam/papers-push',
+    method: 'get',
+    params: {
+      studentId: studentId
+    }
+  });
+}
+
 // You can add other exam related API functions here later 

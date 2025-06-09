@@ -50,6 +50,7 @@
                          <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
                              <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                             <text v-else-if="segment.type === 'multipleChoicePrefix'" class="multiple-choice-prefix">{{ segment.content }}</text>
                          </template>
                     </view>
                     <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image"></image>
@@ -145,6 +146,7 @@
                      <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
                          <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                         <text v-else-if="segment.type === 'multipleChoicePrefix'" class="multiple-choice-prefix">{{ segment.content }}</text>
                      </template>
                 </view>
                 <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image"></image>
@@ -1099,17 +1101,17 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   font-size: 0; /* Eliminate space between inline-block elements */
 }
 
-/* Style for the MathJax container when in display mode (should act like a block) */
-/* We need to target the MathJax component's root element */
-/* Since we can't directly add a class based on displayMode prop, we might need to */
-/* adjust the MathJax.vue component itself or rely on the displayMode prop affecting */
-/* the rendered output structure or add a class conditionally in the template */
-
 /* For now, let's try to ensure text and inline formulas align well */
 .question-stem-content text,
 .option-text-content text {
   vertical-align: middle;
   font-size: 34rpx; /* Reset font size for question stem text */
+}
+
+.multiple-choice-prefix {
+  color: #ff5722; /* Choose a distinct color, e.g., orange-red */
+  font-weight: bold;
+  margin-right: 10rpx;
 }
 
 .option-text-content text {
