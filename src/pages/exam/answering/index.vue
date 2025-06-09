@@ -531,18 +531,25 @@ const contentHeaderHeight = ref(0);
 const getContentHeaderHeight = () => {
     // #ifdef MP-WEIXIN || H5 || APP-VUE
     nextTick(() => {
+        // 使用更长的延迟，确保 DOM 稳定
         setTimeout(() => {
              uni.createSelectorQuery().select('.content-header').boundingClientRect(rect => {
                 if (rect && rect.height) {
                     contentHeaderHeight.value = rect.height;
                      console.log('contentHeaderHeight:', contentHeaderHeight.value);
+                } else {
+                    console.warn('Failed to get .content-header height. Using default.');
+                    // 提供一个默认值以防获取失败
+                    contentHeaderHeight.value = 100; // 调整为一个合理的默认值
                 }
             }).exec();
-        }, 50);
+        }, 200); // 增加延迟到 200ms
     });
     // #endif
     // #ifndef MP-WEIXIN || H5 || APP-VUE
      console.warn('当前平台获取元素高度的方法未实现，请手动调整样式或实现对应平台的元素高度获取。');
+     // 提供一个默认值以防获取失败
+     contentHeaderHeight.value = 100; // 调整为一个合理的默认值
     // #endif
 };
 
@@ -636,8 +643,8 @@ onMounted(() => {
   // 启动倒计时
   examStore.startTimer();
 
-  // 获取 content-header 的高度
-  getContentHeaderHeight();
+  // 初始获取 content-header 的高度 (首次加载数据时会触发 questions 监听，在那里会重新计算，这里可以不需要初始调用)
+  // getContentHeaderHeight();
 
   // 初始化小程序动画实例
   initMPAnimation();
@@ -652,6 +659,7 @@ onLoad((options) => {
   if (options && options.sourceId) {
     const sourceId = options.sourceId;
     console.log('answering: Received sourceId from options:', sourceId);
+    // loadQuestions 会更新 examStore.questions，从而触发 watch 监听
     examStore.loadQuestions(sourceId);
   } else {
     console.warn('answering: No sourceId received from options.');
@@ -662,10 +670,23 @@ onLoad((options) => {
   }
 });
 
-// Add a watcher to see when paperTitle in the store changes
+// Add a watcher to see when questions in the store changes
+watch(() => examStore.questions, (newValue, oldValue) => {
+    console.log('answering: examStore.questions changed. Total questions:', newValue.length);
+    // When questions load, reset current question index to 0 to show the first question
+    if (newValue && newValue.length > 0) {
+        examStore.currentQuestionIndex = 0;
+        // 在 questions 更新后重新计算 content-header 的高度
+        getContentHeaderHeight();
+    }
+}, { immediate: true }); // Immediate: true will fire the watcher immediately on component creation
+
 watch(() => examStore.paperTitle, (newValue, oldValue) => {
     console.log('answering: examStore.paperTitle changed from', oldValue, 'to', newValue);
-}, { immediate: true }); // Immediate: true will fire the watcher immediately on component creation
+}, { immediate: true });
+
+// Need to expose store state and actions to the template
+// The setup script already does this automatically with useExamStore()
 
 </script>
 

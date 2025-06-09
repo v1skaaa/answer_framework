@@ -5,12 +5,12 @@
         <view class="top-item">
           <text class="top-label">坚持天数</text>
           <text class="top-desc">您已打卡</text>
-          <text class="top-value">60天</text>
+          <text class="top-value">99999天</text>
         </view>
         <view class="top-item">
           <text class="top-label">考试倒计时</text>
           <text class="top-desc">距离高考还有</text>
-          <text class="top-value">24天</text>
+          <text class="top-value">1天</text>
         </view>
       </view>
       <view class="middle-card">
@@ -24,7 +24,7 @@
         </view>
       </view>
     </view>
-    <view class="section-title"><view class="bar"></view>每日推荐</view>
+    <view class="section-title"><view class="bar"></view>每日推题</view>
     <view class="recommend-list">
       <view class="recommend-item" v-for="(item, index) in recommendList" :key="index" @click="goToQuestion(item)">
         <view class="recommend-content">

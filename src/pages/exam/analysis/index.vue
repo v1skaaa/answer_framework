@@ -35,7 +35,7 @@
                   >
                 </uni-icons>
                 <!-- 答题卡图标 (在解析页可能不需要答题卡，但保留结构) -->
-                <!-- <uni-icons type="bars" size="24" color="#333" class="header-icon" @click="examStore.toggleQuestionCard"></uni-icons> -->
+                <uni-icons type="bars" size="24" color="#333" class="header-icon" @click="toggleQuestionCard"></uni-icons>
              </view>
         </view>
 
@@ -61,7 +61,7 @@
                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                          </template>
                     </view>
-                    <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image"></image>
+                    <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(0)"></image>
 
                     <!-- 答案区域 -->
                     <view class="answer-area">
@@ -97,11 +97,11 @@
                              <view class="student-answer">
                                 <text class="answer-label">你的答案:</text>
                                 <template v-if="examStore.currentQuestion.imageUrls">
-                                    <view class="image-preview-list">
+                                     <view class="image-preview-list">
                                         <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(examStore.currentQuestion.imageUrls) ? examStore.currentQuestion.imageUrls : [examStore.currentQuestion.imageUrls])" :key="index">
-                                            <image :src="imageUrl" mode="aspectFill" class="preview-image"></image>
-                                        </view>
-                                    </view>
+                                            <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(index)"></image>
+                                         </view>
+                                     </view>
                                 </template>
                                 <template v-else-if="examStore.currentQuestion.stuAnswer">
                                     <text>{{ examStore.currentQuestion.stuAnswer }}</text>
@@ -155,7 +155,7 @@
                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                      </template>
                 </view>
-                <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image"></image>
+                <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(0)"></image>
 
                 <!-- 答案区域 -->
                 <view class="answer-area">
@@ -191,11 +191,11 @@
                          <view class="student-answer">
                             <text class="answer-label">你的答案:</text>
                             <template v-if="examStore.currentQuestion.imageUrls">
-                                <view class="image-preview-list">
+                                 <view class="image-preview-list">
                                     <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(examStore.currentQuestion.imageUrls) ? examStore.currentQuestion.imageUrls : [examStore.currentQuestion.imageUrls])" :key="index">
-                                        <image :src="imageUrl" mode="aspectFill" class="preview-image"></image>
-                                    </view>
-                                </view>
+                                        <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(index)"></image>
+                                     </view>
+                                 </view>
                             </template>
                             <template v-else-if="examStore.currentQuestion.stuAnswer">
                                 <text>{{ examStore.currentQuestion.stuAnswer }}</text>
@@ -241,6 +241,48 @@
             </view>
         </view>
 
+    </view>
+
+    <!-- 答题卡覆盖层 -->
+    <view class="question-card-overlay" :class="{'show': showQuestionCard}" @click="toggleQuestionCard">
+      <view class="question-card-content" @click.stop>
+        <view class="card-header">
+          <text class="card-title">答题卡</text>
+          <text class="card-close-icon" @click="toggleQuestionCard">×</text>
+        </view>
+        <scroll-view class="card-body" scroll-y>
+          <view class="question-type-section" v-for="(type, typeIndex) in examStore.resultQuestionSummary" :key="typeIndex">
+            <text class="type-title">{{ type.name }} (共{{ type.count }}题)</text>
+            <view class="question-number-list">
+              <view
+                class="question-number-item"
+                 v-for="(question, qIndex) in type.questions"
+                 :key="qIndex"
+                 :class="{'correct': question.status === 'correct', 'incorrect': question.status === 'incorrect', 'unanswered': question.status === 'unanswered'}"
+                 @click="examStore.goToQuestion(question.originalIndex); toggleQuestionCard()"
+                 >
+                {{ question.number }}
+              </view>
+            </view>
+          </view>
+           <!-- 添加图例 -->
+            <view class="legend">
+                <view class="legend-item">
+                    <view class="legend-color correct"></view>
+                    <text>正确</text>
+                </view>
+                <view class="legend-item">
+                    <view class="legend-color incorrect"></view>
+                    <text>错误</text>
+                </view>
+                 <view class="legend-item">
+                    <view class="legend-color unanswered"></view>
+                    <text>未作答</text>
+                </view>
+            </view>
+        </scroll-view>
+        <!-- 移除交卷按钮 -->
+      </view>
     </view>
 
   </view>
@@ -484,33 +526,33 @@ const handleTouchEnd = () => {
   touchEndY.value = 0;
 };
 
-// 获取 content-header 的高度
-const contentHeaderRef = ref(null); // Not used in analysis page template, but kept for logic if needed
+// 获取 content-header 的高度 (包含试卷名称和图标行)
+const contentHeaderRef = ref(null);
 const contentHeaderHeight = ref(0);
 
-// We don't need to measure header height dynamically here as it's fixed,
-// but keeping the logic for completeness or future use if header becomes dynamic.
 const getContentHeaderHeight = () => {
+     // #ifdef MP-WEIXIN || H5 || APP-VUE
      nextTick(() => {
+        // 使用更长的延迟，确保 DOM 稳定
         setTimeout(() => {
-            // In analysis page, the header bar is fixed, content padding adjusts for it.
-            // We need height for potential content wrapper positioning if not using padding.
-            // Let's assume a fixed header height of 44px + status bar for simplicity if not using dynamic measurement.
-             const fixedHeaderBaseHeight = 44;
-             contentHeaderHeight.value = fixedHeaderBaseHeight + statusBarHeight;
-             console.log('analysis: Assumed contentHeaderHeight:', contentHeaderHeight.value);
-
-            // If dynamic measurement is needed, use something like below (requires ref in template):
-            /*
-            uni.createSelectorQuery().select('.content-header').boundingClientRect(rect => {
+             uni.createSelectorQuery().select('.content-header').boundingClientRect(rect => {
                 if (rect && rect.height) {
                     contentHeaderHeight.value = rect.height;
                      console.log('analysis: contentHeaderHeight:', contentHeaderHeight.value);
+                } else {
+                    console.warn('analysis: Failed to get .content-header height. Using default.');
+                    // 提供一个默认值以防获取失败
+                    contentHeaderHeight.value = 60; // 调整为一个合理的默认值，比答题页的默认值小一些
                 }
             }).exec();
-            */
-        }, 50);
+        }, 200); // 增加延迟
     });
+    // #endif
+    // #ifndef MP-WEIXIN || H5 || APP-VUE
+     console.warn('analysis: 当前平台获取元素高度的方法未实现，请手动调整样式或实现对应平台的元素高度获取。');
+     // 提供一个默认值以防获取失败
+     contentHeaderHeight.value = 60; // 调整为一个合理的默认值
+    // #endif
 };
 
 // 返回上一页
@@ -536,6 +578,45 @@ const handleNextQuestion = () => {
         transitionDirection.value = 'left';
         examStore.nextQuestion();
     }
+};
+
+// 预览图片方法
+const previewImage = (index) => {
+    // 获取当前题目的所有图片URL (题干图片或学生上传的图片)
+    // 注意：这里需要区分是题干图片还是学生上传的图片列表
+    let urlsToPreview = [];
+    // 题干图片 (如果有且没有学生上传图片，则只预览题干图片)
+    if (examStore.currentQuestion.image && (!examStore.currentQuestion.imageUrls || (Array.isArray(examStore.currentQuestion.imageUrls) && examStore.currentQuestion.imageUrls.length === 0))) {
+         urlsToPreview = [examStore.currentQuestion.image];
+    }
+
+    // 学生上传的图片 (如果有)
+    let studentImageUrls = [];
+    if (examStore.currentQuestion.imageUrls) {
+        if (Array.isArray(examStore.currentQuestion.imageUrls)) {
+            studentImageUrls = examStore.currentQuestion.imageUrls;
+        } else if (typeof examStore.currentQuestion.imageUrls === 'string') {
+            studentImageUrls = examStore.currentQuestion.imageUrls.split(',').map(url => url.trim());
+        }
+    }
+    
+    // 合并题干图片和学生上传图片列表以进行预览
+    urlsToPreview = urlsToPreview.concat(studentImageUrls);
+
+    if (urlsToPreview.length > 0) {
+        uni.previewImage({
+            urls: urlsToPreview, // 传入图片URL数组
+            current: urlsToPreview[index] // 传入当前点击图片的URL
+        });
+    } else {
+        console.warn('No images available for preview or invalid image data.');
+    }
+};
+
+// 答题卡相关状态和方法
+const showQuestionCard = ref(false);
+const toggleQuestionCard = () => {
+    showQuestionCard.value = !showQuestionCard.value;
 };
 
 onMounted(() => {
@@ -582,11 +663,18 @@ watch(() => examStore.questions, (newValue, oldValue) => {
     // When questions load, reset current question index to 0 to show the first question
     if (newValue && newValue.length > 0) {
         examStore.currentQuestionIndex = 0;
+        // 在 questions 更新后重新计算 content-header 的高度
+        getContentHeaderHeight();
+    } else if (newValue && newValue.length === 0) {
+         // 如果没有题目，也重新计算高度，虽然此时 content-header 可能只有标题
+         getContentHeaderHeight();
     }
 }, { immediate: true }); // Immediate: true will fire the watcher immediately on component creation
 
 watch(() => examStore.paperTitle, (newValue, oldValue) => {
     console.log('analysis: examStore.paperTitle changed from', oldValue, 'to', newValue);
+     // 当试卷标题变化时，也重新计算 content-header 的高度
+     getContentHeaderHeight();
 }, { immediate: true });
 
 // Need to expose store state and actions to the template
@@ -670,15 +758,24 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+    /* 添加 padding-top 为 content-header 留出空间 */
+     padding-top: v-bind(contentHeaderHeight + 'px');
 }
 
 /* 内容头部（包含试卷名称和图标行）*/
 .content-header {
-    margin-bottom: 40rpx; /* Increase margin-bottom to push content down */
-    padding: 0 20rpx;
+    /* 使用 absolute 定位，使其悬浮在内容区域上方 */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    /* background-color: #fff; /* 添加背景色，避免内容透出来 */
+    /* padding: 0 20rpx; /* 保持水平内边距 */
+    padding-bottom: 20rpx; /* 保持底边距 */
     display: block;
     width: 100%;
-    box-sizing: border-box; /* Ensure padding is included in width */
+    box-sizing: border-box;
+    z-index: 10;
 }
 
 .paper-title-in-content {
@@ -725,13 +822,13 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     left: 0;
     right: 0;
     bottom: 0;
-    top: 0; /* Position relative to question-content-wrapper */
+    top: 0; /* 相对 .question-content-wrapper 的顶部 */
     overflow-y: auto;
-    width: 100%; /* Ensure absolute positioned element takes full width */
-    height: 100%; /* Take full height of parent */
+    width: 100%;
+    height: 100%; /* 填充 .question-content-wrapper 的剩余空间 */
     will-change: transform;
-    padding: 0 20rpx; /* Keep horizontal padding to content */
-    box-sizing: border-box; /* Include padding in width/height */
+    padding: 0 20rpx; /* 保持水平内边距 */
+    box-sizing: border-box;
 }
 
 .question-main {
@@ -1053,5 +1150,191 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 }
 
 /* #endif */
+
+/* 答题卡覆盖层样式 */
+.question-card-overlay {
+  position: fixed;
+  /* 将 top 设置为 headerHeight + contentHeaderHeight */
+  top: calc(v-bind(headerHeight) + v-bind(contentHeaderHeight)); /* Add both heights */
+  left: 0;
+  right: 0;
+  bottom: 0; /* 延伸到屏幕底部 */
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000; /* 确保在最上层 */
+  display: flex; /* 使用 flex 布局 */
+  visibility: hidden;
+  opacity: 0;
+  transition: visibility 0.3s ease-in-out, opacity 0.3s ease-in-out;
+
+  &.show {
+    visibility: visible;
+    opacity: 1;
+  }
+}
+
+.question-card-content {
+  width: 100%;
+  background-color: #fff;
+  display: flex;
+  flex-direction: column;
+  /* 高度计算为屏幕可视高度减去 headerHeight */
+  height: calc(100vh - v-bind(headerHeight));
+  /* 确保内容区域从左侧滑入 */
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+}
+
+.question-card-overlay.show .question-card-content {
+  transform: translateX(0); /* 显示时移回原位 */
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20rpx;
+  border-bottom: 1rpx solid #eee;
+}
+
+/* Adjusting card-header icons if needed, based on answering page styles */
+/* card-header uni-icons styles were removed in a previous answering page edit */
+/* If needed, re-add them here */
+
+.card-title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+/* Assuming card-close-icon uses default text styling or a specific class */
+.card-close-icon {
+    font-size: 48rpx; /* Adjust size as needed */
+    color: #333; /* Match original color */
+    cursor: pointer;
+    line-height: 1; /* Ensure character is vertically centered if needed */
+    padding: 0;
+    margin: 0;
+}
+
+.card-body {
+  flex: 1;
+  padding: 20rpx;
+  overflow-y: auto;
+}
+
+.question-type-section {
+  margin-bottom: 20rpx;
+}
+
+.type-title {
+  font-size: 30rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 15rpx;
+  display: block;
+}
+
+.question-number-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 30rpx;
+  justify-content: flex-start; /* 将项目对齐到起始位置 */
+}
+
+.question-number-item {
+  width: 100rpx;
+  height: 100rpx;
+  border: 1rpx solid #ccc;
+  border-radius: 50%; /* 保持圆形的边界半径 */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 28rpx;
+  color: #555;
+  cursor: pointer;
+  margin-right: 16rpx; /* 水平间隔 */
+  margin-bottom: 16rpx; /* 垂直线间距离 */
+
+  /* For the last item in each row of 5, margin-right should be 0 */
+  /* This requires :nth-child(5n) which might have compatibility issues or be complex */
+  /* Let's rely on the calculated width and margin to mostly handle it */
+
+  &.answered { /* In analysis, use correct/incorrect/unanswered */
+    background-color: #007aff;
+    color: #fff;
+    border-color: #007aff;
+  }
+
+  /* Add styles for correct, incorrect, unanswered based on analysis page statuses */
+  &.correct {
+     background-color: #4CAF50; /* Green */
+     color: #fff;
+     border-color: #4CAF50;
+  }
+
+  &.incorrect {
+     background-color: #F44336; /* Red */
+     color: #fff;
+     border-color: #F44336;
+  }
+
+  &.unanswered {
+     background-color: #ccc; /* Grey or a different color for unanswered */
+     color: #fff; /* Or #555 depending on preference */
+     border-color: #ccc;
+  }
+}
+
+/* styles for legend */
+.legend {
+    display: flex;
+    justify-content: center;
+    gap: 30rpx;
+    margin-top: 20rpx;
+    font-size: 24rpx;
+    color: #555;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+}
+
+.legend-color {
+    width: 30rpx;
+    height: 30rpx;
+    border-radius: 50%;
+    margin-right: 10rpx;
+}
+
+.legend-color.correct {
+    background-color: #4CAF50;
+}
+
+.legend-color.incorrect {
+    background-color: #F44336;
+}
+
+.legend-color.unanswered {
+    background-color: #ccc;
+}
+
+/* Remove card-footer and submit-button styles */
+/*
+.card-footer {
+  padding: 20rpx;
+  border-top: 1rpx solid #eee;
+}
+
+.submit-button {
+  background-color: #e45656;
+  color: #fff;
+  font-size: 32rpx;
+  padding: 15rpx 0;
+  border-radius: 50rpx;
+  text-align: center;
+  cursor: pointer;
+}
+*/
 
 </style> 

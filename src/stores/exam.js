@@ -439,16 +439,28 @@ export const useExamStore = defineStore('exam', () => {
         // Always include fill questions. Handle images or text answer.
         const images = uploadedImages.value[q.id] || [];
         
-        // If there are uploaded images, create an entry for each image with base64
+        // If there are uploaded images, combine them into a single entry
         if (images.length > 0) {
-            images.forEach(image => {
-                submissionData.blankAnswerDetails.push({
-                    queSort: q.number,
-                    stuAnswer: null, // stuAnswer is null when submitting image for fill
-                    imageUrls: null, // Assuming imageUrls is not used yet
-                    imageDataBase64: image.base64, // Use stored base64 encoding
-                    timeSpent: null // 暂时设置为 null
-                });
+            // Combine all image base64 data with commas, keeping the data:image prefix
+            const combinedBase64 = images.map(image => {
+                // 如果 base64 数据已经包含前缀，直接使用
+                if (image.base64.startsWith('data:')) {
+                    return image.base64;
+                }
+                // 否则添加前缀
+                return `data:image/jpeg;base64,${image.base64}`;
+            }).join(',');
+            console.log(`填空题 ${q.number} 的图片数据:`, {
+                imageCount: images.length,
+                combinedBase64Length: combinedBase64.length,
+                firstImageBase64Preview: combinedBase64.substring(0, 100) + '...' // 只显示前100个字符
+            });
+            submissionData.blankAnswerDetails.push({
+                queSort: q.number,
+                stuAnswer: null, // stuAnswer is null when submitting image for fill
+                imageUrls: null, // Assuming imageUrls is not used yet
+                imageDataBase64: combinedBase64, // Combined base64 data
+                timeSpent: null // 暂时设置为 null
             });
         } else if (q.selectedAnswer && typeof q.selectedAnswer === 'string' && q.selectedAnswer.trim() !== '') {
             // If there is a text answer, include it. Assuming fill supports text.
@@ -474,17 +486,29 @@ export const useExamStore = defineStore('exam', () => {
         // Always include application questions. Handle images or text answer.
          const images = uploadedImages.value[q.id] || [];
 
-         // If there are uploaded images, create an entry for each image with base64
+         // If there are uploaded images, combine them into a single entry
         if (images.length > 0) {
-           images.forEach(image => {
-             submissionData.applicationAnswerDetails.push({
-              queSort: q.number,
-              stuAnswer: null, // stuAnswer is null when submitting image for application
-              imageUrls: null,
-              imageDataBase64: image.base64, // Use stored base64 encoding
-              timeSpent: null // 暂时设置为 null
+            // Combine all image base64 data with commas, keeping the data:image prefix
+            const combinedBase64 = images.map(image => {
+                // 如果 base64 数据已经包含前缀，直接使用
+                if (image.base64.startsWith('data:')) {
+                    return image.base64;
+                }
+                // 否则添加前缀
+                return `data:image/jpeg;base64,${image.base64}`;
+            }).join(',');
+            console.log(`解答题 ${q.number} 的图片数据:`, {
+                imageCount: images.length,
+                combinedBase64Length: combinedBase64.length,
+                firstImageBase64Preview: combinedBase64.substring(0, 100) + '...' // 只显示前100个字符
             });
-          });
+            submissionData.applicationAnswerDetails.push({
+                queSort: q.number,
+                stuAnswer: null, // stuAnswer is null when submitting image for application
+                imageUrls: null,
+                imageDataBase64: combinedBase64, // Combined base64 data
+                timeSpent: null // 暂时设置为 null
+            });
         } else if (q.selectedAnswer && typeof q.selectedAnswer === 'string' && q.selectedAnswer.trim() !== '') {
             // If there is a text answer, include it. Assuming application supports text.
              submissionData.applicationAnswerDetails.push({
@@ -507,7 +531,8 @@ export const useExamStore = defineStore('exam', () => {
       }
     });
 
-    console.log('提交数据:', submissionData);
+    // 打印完整的提交数据结构
+    console.log('提交数据:', JSON.stringify(submissionData, null, 2));
 
     try {
       const response = await submitExamComplete(submissionData);
@@ -804,7 +829,7 @@ export const useExamStore = defineStore('exam', () => {
                 // 将图片URL转换为图片数据对象
                 const imageUrls = Array.isArray(item.detailRecord.imageUrls) 
                   ? item.detailRecord.imageUrls 
-                  : [item.detailRecord.imageUrls];
+                  : item.detailRecord.imageUrls.split(',').map(url => url.trim()); // 处理逗号分隔的URL
                 
                 imageUrls.forEach(url => {
                   if (url) {
@@ -816,6 +841,9 @@ export const useExamStore = defineStore('exam', () => {
                     });
                   }
                 });
+
+                // 将处理后的图片URL数组赋值给当前问题的 imageUrls 属性
+                processedQuestion.imageUrls = imageUrls;
               }
 
               // Log the processed question data for debugging
