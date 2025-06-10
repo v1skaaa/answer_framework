@@ -48,8 +48,9 @@
                     <view class="question-stem-content">
                          <!-- Iterate through text segments -->
                          <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
-                             <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                             <view v-if="segment.type === 'text'" class="question-text-segment">{{ segment.content }}</view>
                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image"></image>
                              <text v-else-if="segment.type === 'multipleChoicePrefix'" class="multiple-choice-prefix">{{ segment.content }}</text>
                          </template>
                     </view>
@@ -71,8 +72,9 @@
                                     <view class="option-text-content">
                                         <!-- Iterate through option text segments -->
                                          <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
-                                             <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                             <view v-if="segment.type === 'text'" class="option-text-segment">{{ segment.content }}</view>
                                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image"></image>
                                          </template>
                                     </view>
                                 </view>
@@ -144,8 +146,9 @@
                 <view class="question-stem-content">
                      <!-- Iterate through text segments -->
                      <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
-                         <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                         <view v-if="segment.type === 'text'" class="question-text-segment">{{ segment.content }}</view>
                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image"></image>
                          <text v-else-if="segment.type === 'multipleChoicePrefix'" class="multiple-choice-prefix">{{ segment.content }}</text>
                      </template>
                 </view>
@@ -167,8 +170,9 @@
                                 <view class="option-text-content">
                                     <!-- Iterate through option text segments -->
                                      <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
-                                         <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                         <view v-if="segment.type === 'text'" class="option-text-segment">{{ segment.content }}</view>
                                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image"></image>
                                      </template>
                                 </view>
                             </view>
@@ -528,7 +532,7 @@ const handleTouchEnd = () => {
 
 // 获取 content-header 的高度
 const contentHeaderRef = ref(null);
-const contentHeaderHeight = ref(0);
+const contentHeaderHeight = ref(80); 
 
 const getContentHeaderHeight = () => {
     // #ifdef MP-WEIXIN || H5 || APP-VUE
@@ -645,8 +649,8 @@ onMounted(() => {
   // 启动倒计时
   examStore.startTimer();
 
-  // 初始获取 content-header 的高度 (首次加载数据时会触发 questions 监听，在那里会重新计算，这里可以不需要初始调用)
-  // getContentHeaderHeight();
+  // 初始获取 content-header 的高度
+  getContentHeaderHeight();
 
   // 初始化小程序动画实例
   initMPAnimation();
@@ -1135,6 +1139,36 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     width: 100%;
     margin: 1em 0; /* Add vertical margin for block formulas */
   }
+}
+
+/* New styles for text segments that might contain HTML */
+.question-text-segment,
+.option-text-segment {
+  display: inline-block; /* To allow alignment with MathJax/other inline elements */
+  vertical-align: middle; /* Try to maintain alignment */
+  font-size: 34rpx; /* Default font size for question stem text */
+  color: #333;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+/* Remove the old text styles that are now handled by .question-text-segment/.option-text-segment */
+.question-stem-content text,
+.option-text-content text {
+  /* No longer needed as they are now views with v-html */
+  /* These rules will be overridden or become redundant */
+  font-size: initial; /* Reset to initial or remove entirely */
+  vertical-align: initial;
+}
+
+/* Styles for images rendered via <image> component */
+.question-content-image,
+.option-content-image {
+  max-width: 40%; /* Set max-width to 40% */
+  height: auto; /* Maintain aspect ratio */
+  display: block; /* Make it a block element */
+  margin: 10rpx auto; /* Center image and add vertical margin */
+  border-radius: 8rpx; /* Optional: add some border radius */
 }
 
 /* 上传区域样式 */

@@ -5,11 +5,11 @@
         <view class="top-item">
           <text class="top-label">坚持天数</text>
           <text class="top-desc">您已打卡</text>
-          <text class="top-value">99999天</text>
+          <text class="top-value">17天</text>
         </view>
         <view class="top-item">
           <text class="top-label">考试倒计时</text>
-          <text class="top-desc">距离高考还有</text>
+          <text class="top-desc">距离2026年高考还有</text>
           <text class="top-value">{{ gaokaoCountdown }}</text>
         </view>
       </view>
@@ -76,7 +76,7 @@ const calculateGaokaoCountdown = () => {
     // 情况一：在今年的高考开始前
     const diffTime = gaokaoStartThisYear.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    gaokaoCountdown.value = `距离高考还有${diffDays}天`;
+    gaokaoCountdown.value = `${diffDays}天`;
   } else if (now.getTime() >= gaokaoStartThisYear.getTime() && now.getTime() <= gaokaoEndThisYear.getTime()) {
     // 情况二：在高考期间
     gaokaoCountdown.value = '高考中';
@@ -86,7 +86,7 @@ const calculateGaokaoCountdown = () => {
     gaokaoStartNextYear.setHours(0, 0, 0, 0);
     const diffTime = gaokaoStartNextYear.getTime() - now.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    gaokaoCountdown.value = `距离高考还有${diffDays}天`;
+    gaokaoCountdown.value = `${diffDays}天`;
   }
 };
 

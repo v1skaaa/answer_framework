@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { useUserStore } from '@/stores/user'; // Import the user store
 
 // 创建两个 Axios 实例，分别用于不同的服务
 const authService = axios.create({
@@ -11,11 +12,29 @@ const apiService = axios.create({
   timeout: 5000,
 });
 
+// Flag to prevent multiple token refresh requests
+let isRefreshing = false;
+// Queue of requests to be retried after token refresh
+let requests = [];
+
+// Helper function to process the queue with the new token
+function processQueue(error, token = null) {
+  requests.forEach(p => {
+    if (error) {
+      p.reject(error);
+    } else {
+      p.resolve(token);
+    }
+  });
+  requests = []; // Clear the queue
+}
+
 // 请求拦截器 - 用于认证服务
 authService.interceptors.request.use(
   config => {
+    const userStore = useUserStore(); // Get the store instance inside the interceptor
     // 从本地存储获取 token
-    const token = uni.getStorageSync('accessToken');
+    const token = userStore.accessToken; // Use store's accessToken
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
     }
@@ -68,10 +87,43 @@ authService.interceptors.response.use(
       return Promise.reject(new Error(res.msg || '请求失败'));
     }
   },
-  error => {
+  async error => {
     // 对响应错误做些什么
     console.error('Auth Response Error:', error);
-    // 这里可以统一处理网络错误、超时等问题
+    const originalRequest = error.config;
+    const userStore = useUserStore(); // Get store instance
+
+    // Check if the error is a 401 Unauthorized and it's not a refresh token request itself
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true; // Mark this request as retried to avoid infinite loops
+
+      if (!isRefreshing) {
+        isRefreshing = true;
+        try {
+          await userStore.refreshAccessToken(); // Call the refresh token action
+          processQueue(null, userStore.accessToken); // Process all pending requests with the new token
+          return authService(originalRequest); // Retry the original request
+        } catch (refreshError) {
+          processQueue(refreshError); // Propagate refresh error to all pending requests
+          // The refreshAccessToken action already redirects to login on failure
+          return Promise.reject(refreshError);
+        } finally {
+          isRefreshing = false;
+        }
+      } else {
+        // If a refresh is already in progress, queue the current request
+        return new Promise((resolve, reject) => {
+          requests.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers['Authorization'] = `Bearer ${token}`;
+          return authService(originalRequest);
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+    }
+
+    // Unified handling for network errors, timeouts, etc.
     uni.showToast({
       title: error.message || '网络错误',
       icon: 'none'
@@ -94,8 +146,38 @@ apiService.interceptors.response.use(
       return Promise.reject(new Error(res.msg || '请求失败'));
     }
   },
-  error => {
+  async error => {
     console.error('API Response Error:', error);
+    const originalRequest = error.config;
+    const userStore = useUserStore(); // Get store instance
+
+    if (error.response && error.response.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      if (!isRefreshing) {
+        isRefreshing = true;
+        try {
+          await userStore.refreshAccessToken();
+          processQueue(null, userStore.accessToken);
+          return apiService(originalRequest); // Retry the original request for apiService
+        } catch (refreshError) {
+          processQueue(refreshError);
+          return Promise.reject(refreshError);
+        } finally {
+          isRefreshing = false;
+        }
+      } else {
+        return new Promise((resolve, reject) => {
+          requests.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers['Authorization'] = `Bearer ${token}`;
+          return apiService(originalRequest); // Re-send for apiService
+        }).catch(err => {
+          return Promise.reject(err);
+        });
+      }
+    }
+
     uni.showToast({
       title: error.message || '网络错误',
       icon: 'none'

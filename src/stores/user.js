@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { login, logout } from '@/api/user';
+import { login, logout, refreshToken } from '@/api/user';
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -96,6 +96,65 @@ export const useUserStore = defineStore('user', {
       } catch (error) {
         throw error;
       }
+    },
+
+    // 刷新 Token
+    async refreshAccessToken() {
+        try {
+            const currentRefreshToken = this.refreshToken;
+            if (!currentRefreshToken) {
+                console.warn('No refreshToken found, cannot refresh token.');
+                // 如果没有 refreshToken，直接视为刷新失败，清空状态并跳转登录
+                this.resetState();
+                uni.redirectTo({ url: '/pages/login/index' }); // 假设您的登录页路径是 /pages/login/index
+                return Promise.reject(new Error('No refreshToken available.'));
+            }
+
+            const res = await refreshToken({ refreshToken: currentRefreshToken });
+
+            const {
+                accessToken,
+                refreshToken: newRefreshToken, // 重命名以避免冲突
+                expires,
+                nickname,
+                username,
+                avatar,
+                permissions,
+                roles,
+                id
+            } = res.result;
+
+            // 更新到状态中
+            this.accessToken = accessToken;
+            this.refreshToken = newRefreshToken;
+            this.expires = expires;
+            this.nickname = nickname;
+            this.username = username;
+            this.avatar = avatar;
+            this.permissions = permissions;
+            this.roles = roles;
+            this.id = id;
+
+            // 存储到本地
+            uni.setStorageSync('accessToken', accessToken);
+            uni.setStorageSync('refreshToken', newRefreshToken);
+            uni.setStorageSync('expires', expires);
+            uni.setStorageSync('nickname', nickname);
+            uni.setStorageSync('username', username);
+            uni.setStorageSync('avatar', avatar);
+            uni.setStorageSync('permissions', permissions);
+            uni.setStorageSync('roles', roles);
+            uni.setStorageSync('id', id);
+
+            console.log('Token refreshed successfully. New expires:', this.expires);
+            return res; // 返回新的响应，可能包含新的用户信息
+        } catch (error) {
+            console.error('Failed to refresh token:', error);
+            // 刷新失败，通常意味着 refreshToken 也过期或无效，需要重新登录
+            this.resetState();
+            uni.redirectTo({ url: '/pages/login/index' }); // 假设您的登录页路径是 /pages/login/index
+            return Promise.reject(error);
+        }
     },
 
     // 重置状态

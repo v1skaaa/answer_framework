@@ -20,6 +20,15 @@ export function logout() {
   });
 }
 
+// 刷新Token - 使用认证服务
+export function refreshToken(data) {
+  return authService({
+    url: '/api/auth/tenant/refreshToken',
+    method: 'post',
+    data // 直接传递包含 refreshToken 的对象
+  });
+}
+
 // 获取用户详细信息
 export function getUserInfoById(userId) {
   return authService({

@@ -6,129 +6,86 @@ import { useUserStore } from '@/stores/user'
 import { getExamDetails } from '@/api/exam'
 
 // 解析数学公式文本的辅助函数
-const parseMathText = (text) => {
+const parseMathText = (text, imageUrlMap = {}) => {
   if (!text || typeof text !== 'string') {
-    return []
+    return [];
   }
   
-  const segments = []
-  let currentIndex = 0
+  const segments = [];
+  let currentIndex = 0;
   
-  while (currentIndex < text.length) {
-    // 查找下一个数学公式的开始位置
-    let nextDisplayMath = text.indexOf('$$', currentIndex)
-    let nextInlineMath = text.indexOf('$', currentIndex)
-    
-    // 如果找到了 $$，检查它是否在 $ 之前
-    if (nextDisplayMath !== -1 && (nextInlineMath === -1 || nextDisplayMath <= nextInlineMath)) {
-      // 处理 display math $$...$$
-      
-      // 添加之前的文本
-      if (nextDisplayMath > currentIndex) {
-        const textContent = text.substring(currentIndex, nextDisplayMath)
+  // Regex to find either $$...$$, $...$, or [IMAGE_ID:...] globally
+  const combinedRegex = /(\$\$[\s\S]*?\$\$)|(\$[\s\S]*?\$)|(\[IMAGE_ID:([a-f0-9-]+)\])/g;
+  
+  let match;
+  while ((match = combinedRegex.exec(text)) !== null) {
+    const fullMatch = match[0];
+    const matchIndex = match.index;
+
+    // Add preceding text segment
+    if (matchIndex > currentIndex) {
+      const textContent = text.substring(currentIndex, matchIndex);
         if (textContent.trim()) {
-          segments.push({
-            type: 'text',
-            content: textContent
-          })
+        segments.push({ type: 'text', content: textContent });
         }
       }
       
-      // 查找对应的结束 $$
-      const endDisplayMath = text.indexOf('$$', nextDisplayMath + 2)
-      if (endDisplayMath !== -1) {
-        const formulaContent = text.substring(nextDisplayMath + 2, endDisplayMath)
-        if (formulaContent.trim()) {
-          segments.push({
-            type: 'formula',
-            content: formulaContent.trim(),
-            displayMode: true
-          })
-        }
-        currentIndex = endDisplayMath + 2
+    // Handle matched segment
+    if (match[1]) {
+      // Display math $$...$$
+      segments.push({ type: 'formula', content: match[1].substring(2, match[1].length - 2).trim(), displayMode: true });
+    } else if (match[2]) {
+      // Inline math $...$
+      segments.push({ type: 'formula', content: match[2].substring(1, match[2].length - 1).trim(), displayMode: false });
+    } else if (match[3]) {
+      // Image ID [IMAGE_ID:...] - match[3] is the full [IMAGE_ID:xxx] string, match[4] is the ID
+      const imageId = match[4];
+      const imageUrl = imageUrlMap[imageId];
+      if (imageUrl) {
+        segments.push({ type: 'image', url: imageUrl });
       } else {
-        // 没有找到结束的 $$，将其作为普通文本处理
-        segments.push({
-          type: 'text',
-          content: text.substring(currentIndex)
-        })
-        break
+        // If image URL not found, treat the placeholder as plain text
+        segments.push({ type: 'text', content: fullMatch });
       }
-      
-    } else if (nextInlineMath !== -1) {
-      // 处理 inline math $...$
-      
-      // 添加之前的文本
-      if (nextInlineMath > currentIndex) {
-        const textContent = text.substring(currentIndex, nextInlineMath)
-        if (textContent.trim()) {
-          segments.push({
-            type: 'text',
-            content: textContent
-          })
-        }
-      }
-      
-      // 查找对应的结束 $（但不能是 $$）
-      let endInlineMath = -1
-      let searchIndex = nextInlineMath + 1
-      
-      while (searchIndex < text.length) {
-        const nextDollar = text.indexOf('$', searchIndex)
-        if (nextDollar === -1) break
-        
-        // 检查是否是 $$（应该跳过）
-        if (text.charAt(nextDollar + 1) === '$') {
-          searchIndex = nextDollar + 2
-          continue
-        }
-        
-        endInlineMath = nextDollar
-        break
-      }
-      
-      if (endInlineMath !== -1) {
-        const formulaContent = text.substring(nextInlineMath + 1, endInlineMath)
-        if (formulaContent.trim()) {
-          segments.push({
-            type: 'formula',
-            content: formulaContent.trim(),
-            displayMode: false
-          })
-        }
-        currentIndex = endInlineMath + 1
-      } else {
-        // 没有找到结束的 $，将其作为普通文本处理
-        segments.push({
-          type: 'text',
-          content: text.substring(currentIndex)
-        })
-        break
-      }
-      
-    } else {
-      // 没有找到更多的数学公式，添加剩余文本
-      const textContent = text.substring(currentIndex)
-      if (textContent.trim()) {
-        segments.push({
-          type: 'text',
-          content: textContent
-        })
-      }
-      break
     }
+    
+    currentIndex = matchIndex + fullMatch.length;
   }
   
-  // 如果没有找到任何公式，返回整个文本作为文本段
+  // Add any remaining text after the last match
+  if (currentIndex < text.length) {
+    const textContent = text.substring(currentIndex);
+        if (textContent.trim()) {
+      segments.push({ type: 'text', content: textContent });
+        }
+      }
+      
+  // If no patterns found and original text has content, return it as a single text segment
   if (segments.length === 0 && text.trim()) {
-    segments.push({ 
-      type: 'text', 
-      content: text 
-    })
+    segments.push({ type: 'text', content: text });
   }
   
-  return segments
-}
+  return segments;
+};
+
+// 处理图片ID的辅助函数
+const processImageIds = (text, imageUrlMap) => {
+  if (!text || !imageUrlMap) return text;
+  
+  // 使用正则表达式匹配 [IMAGE_ID:xxx] 格式
+  const imageIdRegex = /\[IMAGE_ID:([a-f0-9-]+)\]/g;
+  
+  return text.replace(imageIdRegex, (match, imageId) => {
+    // 在 imageUrlMap 中查找对应的URL
+    const imageUrl = imageUrlMap[imageId];
+    if (imageUrl) {
+      // 如果找到对应的URL，返回图片标签，并将max-width直接写入行内样式并添加 !important
+      return `<img src="${imageUrl}" style="max-width: 40% !important; height: auto; display: block; margin: 10rpx auto; border-radius: 8rpx;" />`;
+    }
+    // 如果没有找到对应的URL，保持原样
+    return match;
+  });
+};
 
 export const useExamStore = defineStore('exam', () => {
   // 状态
@@ -227,11 +184,13 @@ export const useExamStore = defineStore('exam', () => {
         console.log('API call successful, res.result:', res.result);
 
         const allQuestions = [];
+        const imageUrlMap = res.result.imageUrlMap || {}; // Ensure imageUrlMap is obtained
 
         // Process choice questions
         if (res.result.choiceQuestions) {
           res.result.choiceQuestions.forEach((item) => {
-            const questionTextSegments = item.queStem ? parseMathText(item.queStem) : [];
+            // Pass imageUrlMap to parseMathText for both stem and options
+            const questionTextSegments = item.queStem ? parseMathText(item.queStem, imageUrlMap) : [];
 
             // 如果是多选题 (choiceType === 2)，在题干前面添加提示
             if (item.choiceType === 2) {
@@ -241,18 +200,21 @@ export const useExamStore = defineStore('exam', () => {
               });
             }
 
+            // Process options with imageUrlMap
+            const processedOptions = [
+              { label: 'A', segments: item.optionA ? parseMathText(item.optionA, imageUrlMap) : [], value: 'A' },
+              { label: 'B', segments: item.optionB ? parseMathText(item.optionB, imageUrlMap) : [], value: 'B' },
+              { label: 'C', segments: item.optionC ? parseMathText(item.optionC, imageUrlMap) : [], value: 'C' },
+              { label: 'D', segments: item.optionD ? parseMathText(item.optionD, imageUrlMap) : [], value: 'D' },
+            ];
+
             allQuestions.push({
               id: item.qcId,
               number: item.queSort,
               type: 'choice',
               choiceType: item.choiceType,
               textSegments: questionTextSegments,
-              options: [
-                { label: 'A', segments: item.optionA ? parseMathText(item.optionA) : [], value: 'A' },
-                { label: 'B', segments: item.optionB ? parseMathText(item.optionB) : [], value: 'B' },
-                { label: 'C', segments: item.optionC ? parseMathText(item.optionC) : [], value: 'C' },
-                { label: 'D', segments: item.optionD ? parseMathText(item.optionD) : [], value: 'D' },
-              ],
+              options: processedOptions,
               selectedAnswers: [], // For multiple choice, use an array
               // index will be assigned after sorting
             });
@@ -262,11 +224,12 @@ export const useExamStore = defineStore('exam', () => {
         // Process blank questions
         if (res.result.blankQuestions) {
            res.result.blankQuestions.forEach((item) => {
+            // Pass imageUrlMap to parseMathText for stem
             allQuestions.push({
               id: item.qbId,
               number: item.queSort,
               type: 'fill',
-              textSegments: item.queStem ? parseMathText(item.queStem) : [],
+              textSegments: item.queStem ? parseMathText(item.queStem, imageUrlMap) : [],
               options: [], // Blank questions have no options in this format
               selectedAnswer: '', // Use a single value for fill-in-the-blank
               // index will be assigned after sorting
@@ -277,11 +240,12 @@ export const useExamStore = defineStore('exam', () => {
         // Process application questions
          if (res.result.applicationQuestions) {
            res.result.applicationQuestions.forEach((item) => {
+            // Pass imageUrlMap to parseMathText for stem
             allQuestions.push({
               id: item.qaId,
               number: item.queSort,
               type: 'application',
-              textSegments: item.queStem ? parseMathText(item.queStem) : [],
+              textSegments: item.queStem ? parseMathText(item.queStem, imageUrlMap) : [],
               options: [], // Application questions have no options
               selectedAnswer: '', // Use a single value for application questions
               // index will be assigned after sorting
@@ -465,12 +429,12 @@ export const useExamStore = defineStore('exam', () => {
                 combinedBase64Length: combinedBase64.length,
                 firstImageBase64Preview: combinedBase64.substring(0, 100) + '...' // 只显示前100个字符
             });
-            submissionData.blankAnswerDetails.push({
-                queSort: q.number,
-                stuAnswer: null, // stuAnswer is null when submitting image for fill
-                imageUrls: null, // Assuming imageUrls is not used yet
+                submissionData.blankAnswerDetails.push({
+                    queSort: q.number,
+                    stuAnswer: null, // stuAnswer is null when submitting image for fill
+                    imageUrls: null, // Assuming imageUrls is not used yet
                 imageDataBase64: combinedBase64, // Combined base64 data
-                timeSpent: null // 暂时设置为 null
+                    timeSpent: null // 暂时设置为 null
             });
         } else if (q.selectedAnswer && typeof q.selectedAnswer === 'string' && q.selectedAnswer.trim() !== '') {
             // If there is a text answer, include it. Assuming fill supports text.
@@ -512,13 +476,13 @@ export const useExamStore = defineStore('exam', () => {
                 combinedBase64Length: combinedBase64.length,
                 firstImageBase64Preview: combinedBase64.substring(0, 100) + '...' // 只显示前100个字符
             });
-            submissionData.applicationAnswerDetails.push({
-                queSort: q.number,
-                stuAnswer: null, // stuAnswer is null when submitting image for application
-                imageUrls: null,
+             submissionData.applicationAnswerDetails.push({
+              queSort: q.number,
+              stuAnswer: null, // stuAnswer is null when submitting image for application
+              imageUrls: null,
                 imageDataBase64: combinedBase64, // Combined base64 data
-                timeSpent: null // 暂时设置为 null
-            });
+              timeSpent: null // 暂时设置为 null
+          });
         } else if (q.selectedAnswer && typeof q.selectedAnswer === 'string' && q.selectedAnswer.trim() !== '') {
             // If there is a text answer, include it. Assuming application supports text.
              submissionData.applicationAnswerDetails.push({
@@ -767,61 +731,91 @@ export const useExamStore = defineStore('exam', () => {
         const allQuestions = [];
         let totalScoreAchieved = 0;
         let totalPaperScore = 0; // Calculate total possible score from paper
+        const imageUrlMap = res.result.imageUrlMap || {}; // 获取imageUrlMap
 
         // Combine and process all question types
         const processQuestions = (questions, typeName, typeValue) => {
           if (questions) {
             questions.forEach(item => {
               let status = 'unanswered';
-              let studentScore = 0; // Score obtained by the student for this question
+              let studentQuestionScore = 0; // Score for this specific question
 
-              // Determine status and calculate student score
+              // Add question's total possible score to totalPaperScore
+              totalPaperScore += item.question.score || 0;
+
+              // Determine student's score for this question and status
               if (typeValue === 1) { // Choice questions
-                if (item.detailRecord && item.detailRecord.stuAnswer !== null) {
+                if (item.detailRecord) {
+                  // Add detailRecord.value to totalScoreAchieved for my score
+                  if (item.detailRecord.value !== null) {
+                    totalScoreAchieved += item.detailRecord.value;
+                  }
+                  // Determine individual question status (correct/incorrect/unanswered)
+                  if (item.detailRecord.stuAnswer !== null) {
                    if (item.detailRecord.stuAnswer === item.question.correctAnswer) {
                       status = 'correct';
-                      // Use question.score if detailRecord.score is null
-                       studentScore = item.detailRecord.score !== null ? item.detailRecord.score : (item.question.score || 0);
                    } else {
                        status = 'incorrect';
-                       studentScore = 0;
                    }
                 } else {
                    status = 'unanswered';
-                   studentScore = 0;
                 }
-                 totalPaperScore += item.question.score || 0;
+                  // The studentQuestionScore for choice question is based on detailRecord.score or value
+                  studentQuestionScore = item.detailRecord.score !== null ? item.detailRecord.score : (item.detailRecord.value !== null ? item.detailRecord.value : 0);
+                }
               } else { // Fill-in-the-blank (2) and Application (3) questions
-                 // For fill-in-the-blank and application questions, status is always unanswered (white circle)
+                // For fill-in-the-blank and application questions, status is always 'unanswered' as per previous logic.
+                // Their score is NOT added to 'my score' (totalScoreAchieved) as per user's request for 'detailRecord.value'.
                  status = 'unanswered';
-                 // Use detailRecord.score if available, otherwise 0 for now
-                 studentScore = item.detailRecord && item.detailRecord.score !== null ? item.detailRecord.score : 0;
-                 totalPaperScore += item.question.score || 0; // Add question's potential score to total
+                // Student's score for these types should still be based on detailRecord.score if available for individual display
+                studentQuestionScore = item.detailRecord && item.detailRecord.score !== null ? item.detailRecord.score : 0;
               }
 
-              // Add student's score for this question to the total achieved score
-               totalScoreAchieved += studentScore;
+              // 处理题干
+              const questionStemSegments = item.question.queStem ? parseMathText(item.question.queStem, imageUrlMap) : [];
+
+              // 处理选项 (仅选择题)
+              const questionOptions = typeValue === 1 ? (
+                [
+                  { label: 'A', segments: item.question.optionA ? parseMathText(item.question.optionA, imageUrlMap) : [], value: 'A' },
+                  { label: 'B', segments: item.question.optionB ? parseMathText(item.question.optionB, imageUrlMap) : [], value: 'B' },
+                  { label: 'C', segments: item.question.optionC ? parseMathText(item.question.optionC, imageUrlMap) : [], value: 'C' },
+                  { label: 'D', segments: item.question.optionD ? parseMathText(item.question.optionD, imageUrlMap) : [], value: 'D' },
+                ].filter(opt => opt.segments && opt.segments.length > 0)
+              ) : undefined;
+
+              // 处理正确答案 (填空题和解答题可能包含数学公式或图片)
+              let correctAnswerSegments = null;
+              if (typeValue === 2 && item.question.answer) { // For Fill-in-the-blank
+                  correctAnswerSegments = parseMathText(item.question.answer, imageUrlMap);
+              } else if (typeValue === 3 && item.question.solution) { // For Application questions
+                  correctAnswerSegments = parseMathText(item.question.solution, imageUrlMap);
+              }
+
+              // 处理解析
+              const rawAnalysis = item.detailRecord && item.detailRecord.analysis ? item.detailRecord.analysis : (item.question.analysis || '');
+              const analysisSegments = parseMathText(rawAnalysis, imageUrlMap);
+
+              // 处理解答 (solution only for application questions from the question object)
+              const rawSolution = item.question.solution || ''; // This is the solution from the question object, used for parsing solutionSegments
+              const solutionSegments = parseMathText(rawSolution, imageUrlMap);
 
               const processedQuestion = {
                 id: item.question.qaId || item.question.qbId || 'unknown-' + item.question.queSort,
                 number: item.question.queSort,
                 type: typeName,
                 originalType: typeValue,
-                textSegments: item.question.queStem ? parseMathText(item.question.queStem) : [],
-                options: typeValue === 1 ? (
-                  [
-                    { label: 'A', segments: item.question.optionA ? parseMathText(item.question.optionA) : [], value: 'A' },
-                    { label: 'B', segments: item.question.optionB ? parseMathText(item.question.optionB) : [], value: 'B' },
-                    { label: 'C', segments: item.question.optionC ? parseMathText(item.question.optionC) : [], value: 'C' },
-                    { label: 'D', segments: item.question.optionD ? parseMathText(item.question.optionD) : [], value: 'D' },
-                  ].filter(opt => opt.segments && opt.segments.length > 0)
-                ) : undefined,
+                textSegments: questionStemSegments,
+                options: questionOptions,
                 stuAnswer: item.detailRecord ? item.detailRecord.stuAnswer : null,
-                correctAnswer: item.question.correctAnswer || null,
-                analysis: item.question.analysis || null,
-                solution: item.question.solution || null,
+                correctAnswer: item.question.correctAnswer || null, // Keep raw answer for choice type
+                correctAnswerSegments: correctAnswerSegments, // Parsed correct answer for fill/application
+                analysis: rawAnalysis, // Keep raw analysis for display if needed, but primarily use segments
+                analysisSegments: analysisSegments,
+                solution: rawSolution, // Keep raw solution for display if needed, but primarily use segments
+                solutionSegments: solutionSegments,
                 status: status,
-                studentScore: studentScore,
+                studentScore: studentQuestionScore,
                 questionScore: item.question.score || 0,
                 imageData: item.detailRecord && item.detailRecord.imageData && item.detailRecord.imageData.length > 0 ? item.detailRecord.imageData : [],
                 imageUrls: item.detailRecord ? item.detailRecord.imageUrls : null,
@@ -858,8 +852,8 @@ export const useExamStore = defineStore('exam', () => {
 
               // Log the processed question data for debugging
               console.log(`Processed Question ${processedQuestion.number}:`, processedQuestion);
-              console.log(`Analysis for Question ${processedQuestion.number}:`, processedQuestion.analysis);
-              console.log(`Analysis Segments for Question ${processedQuestion.number}:`, processedQuestion.analysisSegments);
+              // console.log(`Analysis for Question ${processedQuestion.number}:`, processedQuestion.analysis);
+              // console.log(`Analysis Segments for Question ${processedQuestion.number}:`, processedQuestion.analysisSegments);
 
               allQuestions.push(processedQuestion);
             });

@@ -59,6 +59,7 @@
                          <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
                              <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image"></image>
                          </template>
                     </view>
                     <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(0)"></image>
@@ -81,6 +82,7 @@
                                          <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
                                              <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image"></image>
                                          </template>
                                     </view>
                                 </view>
@@ -108,6 +110,29 @@
                                 </template>
                                 <text v-else>未作答</text>
                              </view>
+
+                             <!-- 正确答案（仅解答题）-->
+                             <view class="correct-solution-section" v-if="examStore.currentQuestion.originalType === 2 || examStore.currentQuestion.originalType === 3">
+                                 <text class="solution-label">正确答案:</text>
+                                 <view class="solution-content-text">
+                                     <template v-if="examStore.currentQuestion.correctAnswerSegments && examStore.currentQuestion.correctAnswerSegments.length > 0">
+                                         <template v-for="(segment, index) in examStore.currentQuestion.correctAnswerSegments" :key="index">
+                                             <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image"></image>
+                                         </template>
+                                     </template>
+                                     <text v-else>暂无答案</text>
+                                 </view>
+                             </view>
+
+                             <!-- 教师评语 -->
+                             <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
+                                 <text class="comment-label">教师评语:</text>
+                                 <view class="comment-content-text">
+                                     <text>{{ examStore.currentQuestion.teacherComment }}</text>
+                                 </view>
+                             </view>
                         </template>
                     </view>
 
@@ -117,7 +142,7 @@
                             <view class="answer-status">
                                 <text>正确答案是: <text class="correct-answer-text">{{ examStore.currentQuestion.correctAnswer || '无' }}</text></text>
                                 <text>你的答案是: <text :class="{'incorrect-answer-text': examStore.currentQuestion.status === 'incorrect', 'correct-answer-text': examStore.currentQuestion.status === 'correct'}">{{ examStore.currentQuestion.stuAnswer || '未作答' }}</text></text>
-                                <text>{{ examStore.currentQuestion.status === 'correct' ? '回答正确' : (examStore.currentQuestion.status === 'incorrect' ? '回答错误' : '未作答') }}</text>
+                                <text>{{ examStore.currentQuestion.status === 'correct' ? '回答正确' : (examStore.currentQuestion.status === 'incorrect' ? '回答错误' : '') }}</text>
                             </view>
                         </template>
                         <view class="analysis-content-text">
@@ -127,6 +152,7 @@
                                  <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
                                      <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                                      <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                     <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image"></image>
                                  </template>
                                  <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
                              </view>
@@ -153,6 +179,7 @@
                      <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
                          <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image"></image>
                      </template>
                 </view>
                 <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(0)"></image>
@@ -175,6 +202,7 @@
                                      <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
                                          <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image"></image>
                                      </template>
                                 </view>
                             </view>
@@ -202,6 +230,29 @@
                             </template>
                             <text v-else>未作答</text>
                          </view>
+
+                         <!-- 正确答案（仅解答题）-->
+                         <view class="correct-solution-section" v-if="examStore.currentQuestion.originalType === 2 || examStore.currentQuestion.originalType === 3">
+                             <text class="solution-label">正确答案:</text>
+                             <view class="solution-content-text">
+                                 <template v-if="examStore.currentQuestion.correctAnswerSegments && examStore.currentQuestion.correctAnswerSegments.length > 0">
+                                     <template v-for="(segment, index) in examStore.currentQuestion.correctAnswerSegments" :key="index">
+                                         <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image"></image>
+                                     </template>
+                                 </template>
+                                 <text v-else>暂无答案</text>
+                             </view>
+                         </view>
+
+                         <!-- 教师评语 -->
+                         <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
+                             <text class="comment-label">教师评语:</text>
+                             <view class="comment-content-text">
+                                 <text>{{ examStore.currentQuestion.teacherComment }}</text>
+                             </view>
+                         </view>
                     </template>
                 </view>
 
@@ -211,7 +262,7 @@
                         <view class="answer-status">
                             <text>正确答案是: <text class="correct-answer-text">{{ examStore.currentQuestion.correctAnswer || '无' }}</text></text>
                             <text>你的答案是: <text :class="{'incorrect-answer-text': examStore.currentQuestion.status === 'incorrect', 'correct-answer-text': examStore.currentQuestion.status === 'correct'}">{{ examStore.currentQuestion.stuAnswer || '未作答' }}</text></text>
-                            <text>{{ examStore.currentQuestion.status === 'correct' ? '回答正确' : (examStore.currentQuestion.status === 'incorrect' ? '回答错误' : '未作答') }}</text>
+                            <text>{{ examStore.currentQuestion.status === 'correct' ? '回答正确' : (examStore.currentQuestion.status === 'incorrect' ? '回答错误' : '') }}</text>
                         </view>
                     </template>
                     <view class="analysis-content-text">
@@ -221,6 +272,7 @@
                              <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
                                  <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                                  <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                 <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image"></image>
                              </template>
                               <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
                          </view>
@@ -752,7 +804,7 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 .question-content-wrapper {
     flex: 1;
     margin-top: v-bind(headerHeight); /* Position below the header */
-    padding-bottom: 160rpx; /* Space for navigation buttons */
+    padding-bottom: 200rpx; /* Space for navigation buttons */
 
     position: relative;
     overflow: hidden;
@@ -821,11 +873,10 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: 138rpx; /* 确保上方有足够空间 */
     top: 0; /* 相对 .question-content-wrapper 的顶部 */
     overflow-y: auto;
     width: 100%;
-    height: 100%; /* 填充 .question-content-wrapper 的剩余空间 */
     will-change: transform;
     padding: 0 20rpx; /* 保持水平内边距 */
     box-sizing: border-box;
@@ -1133,11 +1184,10 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     position: absolute;
     left: 0;
     right: 0;
-    bottom: 0;
+    bottom: 138rpx; /* Position relative to question-content-wrapper */
     top: 0; /* Position relative to question-content-wrapper */
     overflow-y: auto;
     width: 100%;
-    height: 100%; /* Take full height of parent */
     will-change: transform;
 }
 
@@ -1319,22 +1369,66 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     background-color: #ccc;
 }
 
-/* Remove card-footer and submit-button styles */
-/*
-.card-footer {
-  padding: 20rpx;
-  border-top: 1rpx solid #eee;
+/* correct solution section */
+.correct-solution-section {
+    margin-top: 20rpx; /* Adjust margin as needed */
+    padding-top: 20rpx; /* Add padding top */
+    border-top: 1rpx solid #eee; /* Add border top */
 }
 
-.submit-button {
-  background-color: #e45656;
-  color: #fff;
-  font-size: 32rpx;
-  padding: 15rpx 0;
-  border-radius: 50rpx;
-  text-align: center;
-  cursor: pointer;
+.solution-label {
+    font-size: 30rpx;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 10rpx;
+    display: block;
 }
-*/
+
+.solution-content-text {
+    font-size: 28rpx;
+    color: #555;
+    line-height: 1.6;
+    word-break: break-word;
+    font-size: 0; /* Eliminate space between inline-block elements */
+}
+
+.solution-content-text text {
+  vertical-align: middle;
+  font-size: 28rpx; /* Reset font size for text */
+}
+
+/* teacher comment section */
+.teacher-comment-section {
+    margin-top: 20rpx; /* Similar to solution section */
+    padding-top: 20rpx;
+    border-top: 1rpx solid #eee;
+}
+
+.comment-label {
+    font-size: 30rpx;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 10rpx;
+    display: block;
+}
+
+.comment-content-text {
+    font-size: 28rpx;
+    color: #555;
+    line-height: 1.6;
+    word-break: break-word;
+}
+
+/* New styles for images rendered via <image> component in analysis/solution */
+.question-content-image,
+.option-content-image,
+.analysis-content-image,
+.solution-content-image {
+  max-width: 40%; /* Set max-width to 40% */
+  height: auto; /* Maintain aspect ratio */
+  display: block; /* Make it a block element */
+  margin: 10rpx auto; /* Center image and add vertical margin */
+  border-radius: 8rpx; /* Optional: add some border radius */
+}
 
 </style> 

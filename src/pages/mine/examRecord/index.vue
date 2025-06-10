@@ -38,7 +38,7 @@
           <view class="record-info">
             <text class="record-title">{{ record.paperName }}</text>
             <text class="record-score">总分：{{ record.totalScore || 'N/A' }}分</text>
-            <text class="record-my-score">我的得分：{{ record.myScore || 'N/A' }}分</text>
+            <text class="record-my-score">我的得分：{{ record.myScore || '0' }}分</text>
             <text class="record-time">开始时间：{{ record.startTime }}</text>
           </view>
           <uni-icons type="right" size="16" color="#999"></uni-icons>
