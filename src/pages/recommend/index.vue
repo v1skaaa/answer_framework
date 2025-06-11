@@ -94,10 +94,10 @@ const goBack = () => {
   uni.navigateBack();
 };
 
-// 跳转到试卷详情 (修改为跳转到试卷介绍页，并传递 paperId)
+// 跳转到试卷详情 (修改为跳转到试卷介绍页，并传递 paperId 和 pushId)
 const goToQuestionDetail = (question) => {
   uni.navigateTo({
-    url: `/pages/exam/intro/index?sourceId=${question.paperId}`
+    url: `/pages/exam/intro/index?sourceId=${question.paperId}${question.pushId ? `&pushId=${question.pushId}` : ''}`
   });
 };
 

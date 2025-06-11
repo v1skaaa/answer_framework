@@ -53,16 +53,24 @@
                 >
               <!-- Here display question text and images -->
                 <view class="question-main">
+                    <view class="question-score-info">
+                        <text v-if="examStore.currentQuestion.questionScore !== undefined && examStore.currentQuestion.questionScore !== null">
+                            本题分值：{{ examStore.currentQuestion.questionScore }}分
+                        </text>
+                        <text v-if="examStore.currentQuestion.studentScore !== undefined && examStore.currentQuestion.studentScore !== null">
+                            你的得分：{{ examStore.currentQuestion.studentScore }}分
+                        </text>
+                    </view>
                     <!-- Render question stem with MathJax component -->
                     <view class="question-stem-content">
                          <!-- Iterate through text segments -->
                          <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
                              <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image"></image>
+                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image" @click="previewImage(segment.url)"></image>
                          </template>
                     </view>
-                    <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(0)"></image>
+                    <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(examStore.currentQuestion.image)"></image>
 
                     <!-- 答案区域 -->
                     <view class="answer-area">
@@ -82,7 +90,7 @@
                                          <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
                                              <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image"></image>
+                                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image" @click="previewImage(segment.url)"></image>
                                          </template>
                                     </view>
                                 </view>
@@ -101,7 +109,7 @@
                                 <template v-if="examStore.currentQuestion.imageUrls">
                                      <view class="image-preview-list">
                                         <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(examStore.currentQuestion.imageUrls) ? examStore.currentQuestion.imageUrls : [examStore.currentQuestion.imageUrls])" :key="index">
-                                            <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(index)"></image>
+                                            <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(imageUrl)"></image>
                                          </view>
                                      </view>
                                 </template>
@@ -119,7 +127,7 @@
                                          <template v-for="(segment, index) in examStore.currentQuestion.correctAnswerSegments" :key="index">
                                              <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image"></image>
+                                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image" @click="previewImage(segment.url)"></image>
                                          </template>
                                      </template>
                                      <text v-else>暂无答案</text>
@@ -144,6 +152,13 @@
                                 <text>你的答案是: <text :class="{'incorrect-answer-text': examStore.currentQuestion.status === 'incorrect', 'correct-answer-text': examStore.currentQuestion.status === 'correct'}">{{ examStore.currentQuestion.stuAnswer || '未作答' }}</text></text>
                                 <text>{{ examStore.currentQuestion.status === 'correct' ? '回答正确' : (examStore.currentQuestion.status === 'incorrect' ? '回答错误' : '') }}</text>
                             </view>
+                            <!-- 教师评语 (仅选择题显示在正确答案/你的答案下面，解析上面) -->
+                            <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
+                                <text class="comment-label">教师评语:</text>
+                                <view class="comment-content-text">
+                                    <text>{{ examStore.currentQuestion.teacherComment }}</text>
+                                </view>
+                            </view>
                         </template>
                         <view class="analysis-content-text">
                              <text class="analysis-label">解析:</text>
@@ -152,7 +167,7 @@
                                  <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
                                      <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                                      <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                     <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image"></image>
+                                     <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
                                  </template>
                                  <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
                              </view>
@@ -173,16 +188,24 @@
             :animation="animationData"
             >
             <view class="question-main">
-                 <!-- Render question stem with MathJax component -->
+                 <view class="question-score-info">
+                    <text v-if="examStore.currentQuestion.questionScore !== undefined && examStore.currentQuestion.questionScore !== null">
+                        本题分值：{{ examStore.currentQuestion.questionScore }}分
+                    </text>
+                    <text v-if="examStore.currentQuestion.studentScore !== undefined && examStore.currentQuestion.studentScore !== null">
+                        你的得分：{{ examStore.currentQuestion.studentScore }}分
+                    </text>
+                </view>
+                <!-- Render question stem with MathJax component -->
                 <view class="question-stem-content">
                      <!-- Iterate through text segments -->
                      <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
                          <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image"></image>
+                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image" @click="previewImage(segment.url)"></image>
                      </template>
                 </view>
-                <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(0)"></image>
+                <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(examStore.currentQuestion.image)"></image>
 
                 <!-- 答案区域 -->
                 <view class="answer-area">
@@ -202,7 +225,7 @@
                                      <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
                                          <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image"></image>
+                                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image" @click="previewImage(segment.url)"></image>
                                      </template>
                                 </view>
                             </view>
@@ -221,7 +244,7 @@
                             <template v-if="examStore.currentQuestion.imageUrls">
                                  <view class="image-preview-list">
                                     <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(examStore.currentQuestion.imageUrls) ? examStore.currentQuestion.imageUrls : [examStore.currentQuestion.imageUrls])" :key="index">
-                                        <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(index)"></image>
+                                        <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(imageUrl)"></image>
                                      </view>
                                  </view>
                             </template>
@@ -239,7 +262,7 @@
                                      <template v-for="(segment, index) in examStore.currentQuestion.correctAnswerSegments" :key="index">
                                          <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image"></image>
+                                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image" @click="previewImage(segment.url)"></image>
                                      </template>
                                  </template>
                                  <text v-else>暂无答案</text>
@@ -254,6 +277,14 @@
                              </view>
                          </view>
                     </template>
+                </view>
+
+                 <!-- 教师评语 (统一放在解析信息之前) -->
+                <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
+                    <text class="comment-label">教师评语:</text>
+                    <view class="comment-content-text">
+                        <text>{{ examStore.currentQuestion.teacherComment }}</text>
+                    </view>
                 </view>
 
                  <!-- 解析信息 -->
@@ -272,7 +303,7 @@
                              <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
                                  <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                                  <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                 <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image"></image>
+                                 <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
                              </template>
                               <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
                          </view>
@@ -632,36 +663,95 @@ const handleNextQuestion = () => {
     }
 };
 
-// 预览图片方法
-const previewImage = (index) => {
-    // 获取当前题目的所有图片URL (题干图片或学生上传的图片)
-    // 注意：这里需要区分是题干图片还是学生上传的图片列表
-    let urlsToPreview = [];
-    // 题干图片 (如果有且没有学生上传图片，则只预览题干图片)
-    if (examStore.currentQuestion.image && (!examStore.currentQuestion.imageUrls || (Array.isArray(examStore.currentQuestion.imageUrls) && examStore.currentQuestion.imageUrls.length === 0))) {
-         urlsToPreview = [examStore.currentQuestion.image];
+// New computed property to gather all image URLs for preview
+const allQuestionImagesForPreview = computed(() => {
+    const urls = [];
+
+    // Add main question image if it exists
+    if (examStore.currentQuestion.image) {
+        urls.push(examStore.currentQuestion.image);
     }
 
-    // 学生上传的图片 (如果有)
-    let studentImageUrls = [];
+    // Add images from question stem
+    if (examStore.currentQuestion.textSegments) {
+        examStore.currentQuestion.textSegments.forEach(segment => {
+            if (segment.type === 'image' && segment.url) {
+                urls.push(segment.url);
+            }
+        });
+    }
+
+    // Add images from options
+    if (examStore.currentQuestion.options) {
+        examStore.currentQuestion.options.forEach(option => {
+            if (option.segments) {
+                option.segments.forEach(segment => {
+                    if (segment.type === 'image' && segment.url) {
+                        urls.push(segment.url);
+                    }
+                });
+            }
+        });
+    }
+
+    // Add images from correct answer (solution for fill/application)
+    if (examStore.currentQuestion.correctAnswerSegments) {
+        examStore.currentQuestion.correctAnswerSegments.forEach(segment => {
+            if (segment.type === 'image' && segment.url) {
+                urls.push(segment.url);
+            }
+        });
+    }
+
+    // Add images from analysis
+    if (examStore.currentQuestion.analysisSegments) {
+        examStore.currentQuestion.analysisSegments.forEach(segment => {
+            if (segment.type === 'image' && segment.url) {
+                urls.push(segment.url);
+            }
+        });
+    }
+
+    // Add student uploaded images
     if (examStore.currentQuestion.imageUrls) {
-        if (Array.isArray(examStore.currentQuestion.imageUrls)) {
-            studentImageUrls = examStore.currentQuestion.imageUrls;
-        } else if (typeof examStore.currentQuestion.imageUrls === 'string') {
-            studentImageUrls = examStore.currentQuestion.imageUrls.split(',').map(url => url.trim());
-        }
+        // Note: imageUrls can be a string or array, handle both
+        const studentImageUrls = Array.isArray(examStore.currentQuestion.imageUrls)
+            ? examStore.currentQuestion.imageUrls
+            : (examStore.currentQuestion.imageUrls ? examStore.currentQuestion.imageUrls.split(',').map(url => url.trim()) : []);
+        studentImageUrls.forEach(url => {
+            if (url) {
+                urls.push(url);
+            }
+        });
     }
     
-    // 合并题干图片和学生上传图片列表以进行预览
-    urlsToPreview = urlsToPreview.concat(studentImageUrls);
+    // Remove duplicates and ensure unique URLs
+    return [...new Set(urls)];
+});
 
+// Modified previewImage method
+const previewImage = (clickedImageUrl) => {
+    const urlsToPreview = allQuestionImagesForPreview.value;
     if (urlsToPreview.length > 0) {
-        uni.previewImage({
-            urls: urlsToPreview, // 传入图片URL数组
-            current: urlsToPreview[index] // 传入当前点击图片的URL
-        });
+        const current = urlsToPreview.indexOf(clickedImageUrl);
+        if (current !== -1) {
+            uni.previewImage({
+                urls: urlsToPreview,
+                current: urlsToPreview[current]
+            });
+        } else {
+            console.warn('Clicked image URL not found in the list of images to preview:', clickedImageUrl);
+            uni.showToast({
+                title: '图片预览失败',
+                icon: 'none'
+            });
+        }
     } else {
-        console.warn('No images available for preview or invalid image data.');
+        console.warn('No images available for preview.');
+        uni.showToast({
+            title: '无可预览图片',
+            icon: 'none'
+        });
     }
 };
 
@@ -889,6 +979,22 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     border-radius: 8rpx;
     width: 100%; /* Explicitly set width for inner content area */
     overflow: hidden; /* Hide any potential overflow */
+}
+
+.question-score-info {
+    margin-bottom: 20rpx;
+    display: flex; /* 使用 flex 布局 */
+    justify-content: flex-start; /* 左对齐 */
+    gap: 40rpx; /* 增加两个文本之间的间距 */
+    padding-left: 20rpx; /* 与题干左侧对齐 */
+    font-size: 28rpx; /* 调整字体大小 */
+    color: #666; /* 调整颜色 */
+    font-weight: bold; /* 加粗 */
+}
+
+.question-score-info text {
+    /* 确保每个文本元素内部内容不换行，如果需要 */
+    white-space: nowrap;
 }
 
 .question-stem-content,

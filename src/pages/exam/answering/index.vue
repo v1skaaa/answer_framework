@@ -44,17 +44,20 @@
                 >
               <!-- Here display question text and images -->
                 <view class="question-main">
+                    <view class="question-score" v-if="examStore.currentQuestion.score">
+                        本题分值：{{ examStore.currentQuestion.score }}分
+                    </view>
                     <!-- Render question stem with MathJax component -->
                     <view class="question-stem-content">
                          <!-- Iterate through text segments -->
                          <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
                              <view v-if="segment.type === 'text'" class="question-text-segment">{{ segment.content }}</view>
                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image"></image>
+                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image" @click="previewImage(segment.url)"></image>
                              <text v-else-if="segment.type === 'multipleChoicePrefix'" class="multiple-choice-prefix">{{ segment.content }}</text>
                          </template>
                     </view>
-                    <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image"></image>
+                    <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(examStore.currentQuestion.image)"></image>
 
                     <!-- 答案区域 -->
                     <view class="answer-area">
@@ -74,7 +77,7 @@
                                          <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
                                              <view v-if="segment.type === 'text'" class="option-text-segment">{{ segment.content }}</view>
                                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image"></image>
+                                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image" @click="previewImage(segment.url)"></image>
                                          </template>
                                     </view>
                                 </view>
@@ -106,7 +109,7 @@
                                             :src="`data:image/jpeg;base64,${image.base64}`" 
                                             mode="aspectFill" 
                                             class="preview-image"
-                                            @click="previewImage(index)"
+                                            @click="previewImage(`data:image/jpeg;base64,${image.base64}`)"
                                         ></image>
                                         <view class="image-actions">
                                             <view class="delete-btn" @click="deleteImage(index)">
@@ -142,17 +145,20 @@
             :animation="animationData"
             >
             <view class="question-main">
+                 <view class="question-score" v-if="examStore.currentQuestion.score">
+                    本题分值：{{ examStore.currentQuestion.score }}分
+                </view>
                  <!-- Render question stem with MathJax component -->
                 <view class="question-stem-content">
                      <!-- Iterate through text segments -->
                      <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
                          <view v-if="segment.type === 'text'" class="question-text-segment">{{ segment.content }}</view>
                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image"></image>
+                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image" @click="previewImage(segment.url)"></image>
                          <text v-else-if="segment.type === 'multipleChoicePrefix'" class="multiple-choice-prefix">{{ segment.content }}</text>
                      </template>
                 </view>
-                <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image"></image>
+                <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(examStore.currentQuestion.image)"></image>
 
                 <!-- 答案区域 -->
                 <view class="answer-area">
@@ -172,7 +178,7 @@
                                      <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
                                          <view v-if="segment.type === 'text'" class="option-text-segment">{{ segment.content }}</view>
                                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image"></image>
+                                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image" @click="previewImage(segment.url)"></image>
                                      </template>
                                 </view>
                             </view>
@@ -204,7 +210,7 @@
                                         :src="`data:image/jpeg;base64,${image.base64}`" 
                                         mode="aspectFill" 
                                         class="preview-image"
-                                        @click="previewImage(index)"
+                                        @click="previewImage(`data:image/jpeg;base64,${image.base64}`)"
                                     ></image>
                                     <view class="image-actions">
                                         <view class="delete-btn" @click="deleteImage(index)">
@@ -308,6 +314,9 @@ import { useExamStore } from '@/stores/exam';
 
 // 获取考试 store
 const examStore = useExamStore();
+
+// 新增 pushId 状态
+const currentPushId = ref(null);
 
 // 获取胶囊按钮位置信息和状态栏高度
 const menuButtonHeight = ref(0);
@@ -592,13 +601,73 @@ const chooseAndUploadImage = async () => {
     }
 };
 
+// New computed property to gather all image URLs for preview in answering page
+const allQuestionImagesForPreview = computed(() => {
+    const urls = [];
+
+    // Add main question image if it exists
+    if (examStore.currentQuestion.image) {
+        urls.push(examStore.currentQuestion.image);
+    }
+
+    // Add images from question stem
+    if (examStore.currentQuestion.textSegments) {
+        examStore.currentQuestion.textSegments.forEach(segment => {
+            if (segment.type === 'image' && segment.url) {
+                urls.push(segment.url);
+            }
+        });
+    }
+
+    // Add images from options
+    if (examStore.currentQuestion.options) {
+        examStore.currentQuestion.options.forEach(option => {
+            if (option.segments) {
+                option.segments.forEach(segment => {
+                    if (segment.type === 'image' && segment.url) {
+                        urls.push(segment.url);
+                    }
+                });
+            }
+        });
+    }
+
+    // Add student uploaded images (base64 converted to data URL for preview)
+    if (examStore.currentQuestionImages && examStore.currentQuestionImages.length > 0) {
+        examStore.currentQuestionImages.forEach(image => {
+            // For local base64 images, create a data URL for preview
+            urls.push(`data:image/jpeg;base64,${image.base64}`);
+        });
+    }
+    
+    // Remove duplicates and ensure unique URLs
+    return [...new Set(urls)];
+});
+
 // 预览图片
-const previewImage = (index) => {
-    const images = examStore.currentQuestionImages.map(img => `data:image/jpeg;base64,${img.base64}`);
-    uni.previewImage({
-        urls: images,
-        current: index
-    });
+const previewImage = (clickedImageUrl) => {
+    const urlsToPreview = allQuestionImagesForPreview.value;
+    if (urlsToPreview.length > 0) {
+        const current = urlsToPreview.indexOf(clickedImageUrl);
+        if (current !== -1) {
+            uni.previewImage({
+                urls: urlsToPreview,
+                current: urlsToPreview[current]
+            });
+        } else {
+            console.warn('Clicked image URL not found in the list of images to preview:', clickedImageUrl);
+            uni.showToast({
+                title: '图片预览失败',
+                icon: 'none'
+            });
+        }
+    } else {
+        console.warn('No images available for preview.');
+        uni.showToast({
+            title: '无可预览图片',
+            icon: 'none'
+        });
+    }
 };
 
 // 删除图片
@@ -664,9 +733,11 @@ onLoad((options) => {
   console.log('answering: Page onLoad', options);
   if (options && options.sourceId) {
     const sourceId = options.sourceId;
+    currentPushId.value = options.pushId || null; // 获取 pushId
     console.log('answering: Received sourceId from options:', sourceId);
+    console.log('answering: Received pushId from options:', currentPushId.value); // 打印 pushId
     // loadQuestions 会更新 examStore.questions，从而触发 watch 监听
-    examStore.loadQuestions(sourceId);
+    examStore.loadQuestions(sourceId, currentPushId.value); // 传递 pushId
   } else {
     console.warn('answering: No sourceId received from options.');
     uni.showToast({
@@ -885,6 +956,8 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   justify-content: center;
   align-items: center;
   transition: all 0.3s ease;
+  flex-shrink: 0;
+  flex-grow: 0;
 }
 
 .choice-item.selected .option-label {
@@ -1312,6 +1385,16 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 /* 调整内容区域底部间距，为导航按钮留出空间 */
 .question-content {
     padding-bottom: 160rpx;
+}
+
+/* 新增题目分值样式 */
+.question-score {
+  font-size: 28rpx;
+  color: #666;
+  margin-bottom: 20rpx;
+  text-align: left; /* 改变为左对齐 */
+  padding-left: 20rpx; /* 与内容区域左侧对齐 */
+  font-weight: bold;
 }
 
 </style> 

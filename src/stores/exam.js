@@ -102,6 +102,7 @@ export const useExamStore = defineStore('exam', () => {
   const score = ref(0)
   const totalScore = ref(0)
   const timeSpent = ref(0)
+  const currentPushId = ref(null); // 新增 pushId 状态
 
   // 计算属性
   const totalQuestions = computed(() => questions.value.length)
@@ -163,18 +164,21 @@ export const useExamStore = defineStore('exam', () => {
   })
 
   // 方法
-  const loadQuestions = async (sourceId) => {
-    console.log('loadQuestions called with sourceId:', sourceId);
+  const loadQuestions = async (sourceId, pushId = null) => {
+    console.log('loadQuestions called with sourceId:', sourceId, 'and pushId:', pushId);
     if (!sourceId) {
       console.warn('No sourceId provided for loading questions.')
       questions.value = []
       paperId.value = null; // Clear paperId
+      uploadedImages.value = {}; // Clear uploaded images when loading new questions
+      currentPushId.value = null; // Clear pushId as well
       return
     }
 
     // 直接将传入的 sourceId 设置为 paperId
     paperId.value = sourceId;
-    console.log('Setting paperId from sourceId parameter:', paperId.value);
+    currentPushId.value = pushId; // 存储 pushId
+    console.log('Setting paperId from sourceId parameter:', paperId.value, 'and currentPushId:', currentPushId.value);
 
     try {
       console.log('Calling getQuestionList API...');
@@ -216,6 +220,7 @@ export const useExamStore = defineStore('exam', () => {
               textSegments: questionTextSegments,
               options: processedOptions,
               selectedAnswers: [], // For multiple choice, use an array
+              score: item.score,
               // index will be assigned after sorting
             });
           });
@@ -232,6 +237,7 @@ export const useExamStore = defineStore('exam', () => {
               textSegments: item.queStem ? parseMathText(item.queStem, imageUrlMap) : [],
               options: [], // Blank questions have no options in this format
               selectedAnswer: '', // Use a single value for fill-in-the-blank
+              score: item.score,
               // index will be assigned after sorting
             });
           });
@@ -248,6 +254,7 @@ export const useExamStore = defineStore('exam', () => {
               textSegments: item.queStem ? parseMathText(item.queStem, imageUrlMap) : [],
               options: [], // Application questions have no options
               selectedAnswer: '', // Use a single value for application questions
+              score: item.score,
               // index will be assigned after sorting
             });
           });
@@ -395,6 +402,7 @@ export const useExamStore = defineStore('exam', () => {
     const submissionData = {
       paperId: paperId.value,
       studentId: studentId, // 从 user store 获取的 studentId
+      pushId: currentPushId.value, // 使用 store 中的 currentPushId
       choiceAnswerDetails: [],
       blankAnswerDetails: [],
       applicationAnswerDetails: []
@@ -683,15 +691,15 @@ export const useExamStore = defineStore('exam', () => {
   }
 
   const clearImages = (questionId) => {
-    if (uploadedImages.value[questionId]) {
-      uploadedImages.value[questionId] = []
-      
-      // 清除题目的答案
-      const currentQ = questions.value[currentQuestionIndex.value];
-      if (currentQ && (currentQ.type === 'fill' || currentQ.type === 'application')) {
-        currentQ.selectedAnswer = '';
-      }
+    if (questionId && uploadedImages.value[questionId]) {
+      uploadedImages.value[questionId] = [];
     }
+  }
+
+  // 清空所有图片缓存
+  const resetUploadedImages = () => {
+    uploadedImages.value = {};
+    console.log('All uploaded images have been cleared');
   }
 
   // 切换题目收藏状态
@@ -744,6 +752,12 @@ export const useExamStore = defineStore('exam', () => {
               totalPaperScore += item.question.score || 0;
 
               // Determine student's score for this question and status
+              if (item.detailRecord && item.detailRecord.value !== null) {
+                  studentQuestionScore = item.detailRecord.value;
+              } else {
+                  studentQuestionScore = 0; // Default to 0 if value is null or undefined
+              }
+
               if (typeValue === 1) { // Choice questions
                 if (item.detailRecord) {
                   // Add detailRecord.value to totalScoreAchieved for my score
@@ -760,15 +774,11 @@ export const useExamStore = defineStore('exam', () => {
                 } else {
                    status = 'unanswered';
                 }
-                  // The studentQuestionScore for choice question is based on detailRecord.score or value
-                  studentQuestionScore = item.detailRecord.score !== null ? item.detailRecord.score : (item.detailRecord.value !== null ? item.detailRecord.value : 0);
                 }
               } else { // Fill-in-the-blank (2) and Application (3) questions
                 // For fill-in-the-blank and application questions, status is always 'unanswered' as per previous logic.
                 // Their score is NOT added to 'my score' (totalScoreAchieved) as per user's request for 'detailRecord.value'.
                  status = 'unanswered';
-                // Student's score for these types should still be based on detailRecord.score if available for individual display
-                studentQuestionScore = item.detailRecord && item.detailRecord.score !== null ? item.detailRecord.score : 0;
               }
 
               // 处理题干
@@ -866,6 +876,11 @@ export const useExamStore = defineStore('exam', () => {
 
         // Sort all questions by queSort
         allQuestions.sort((a, b) => a.number - b.number);
+
+        // Debugging: Log scores before assigning to questions.value
+        // allQuestions.forEach(q => {
+        //     console.log(`Debug - Question ${q.number}: questionScore = ${q.questionScore}, studentScore = ${q.studentScore}`);
+        // });
 
         // Group sorted questions by type for the result summary display
         const resultQuestionSummaryGrouped = {};
@@ -994,6 +1009,7 @@ export const useExamStore = defineStore('exam', () => {
     score,
     totalScore,
     timeSpent,
+    currentPushId,
     
     // 计算属性
     totalQuestions,
@@ -1016,6 +1032,7 @@ export const useExamStore = defineStore('exam', () => {
     uploadImage,
     removeImage,
     clearImages,
+    resetUploadedImages,
     toggleFavorite,
     loadExamDetails,
     loadMockDataForResult

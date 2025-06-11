@@ -47,6 +47,7 @@
     <!-- Fixed bottom button container -->
     <view class="fixed-bottom-button">
        <view class="button-container">
+          <button class="start-button preview-button">整卷预览</button>
           <button class="start-button" @click="startExam">开始答题</button>
         </view>
     </view>
@@ -90,6 +91,9 @@ import { useExamStore } from '@/stores/exam';
 
 // 获取考试 store 实例
 const examStore = useExamStore();
+
+// 新增 pushId 状态
+const currentPushId = ref(null);
 
 // 获取胶囊按钮位置信息和状态栏高度
 const menuButtonHeight = ref(0);
@@ -141,8 +145,10 @@ onLoad((options) => {
     if (options && options.sourceId) {
         const sourceId = options.sourceId;
         const paperName = options.paperName;
+        currentPushId.value = options.pushId || null; // 获取并存储 pushId
         console.log('intro: Received sourceId from options:', sourceId);
         console.log('intro: Received paperName from options:', paperName);
+        console.log('intro: Received pushId from options:', currentPushId.value); // 打印 pushId
         
         // 如果有 paperName，先设置标题
         if (paperName) {
@@ -340,16 +346,18 @@ const goBack = () => {
 const startExam = () => {
   console.log('startExam clicked');
   if (paper.value && paper.value.id) {
-    // 使用 uni.navigateTo 跳转到答题页面
-    // 将 paperId (sourceId) 作为参数传递
+    // 在跳转前清空所有图片缓存
+    examStore.resetUploadedImages();
+    
+    // 使用 uni.navigateTo 跳转到答题页面，并传递 sourceId 和 pushId
     uni.navigateTo({
-      url: `/pages/exam/answering/index?sourceId=${paper.value.id}`, // Pass sourceId only, paperTitle is in store
+      url: `/pages/exam/answering/index?sourceId=${paper.value.id}${currentPushId.value ? `&pushId=${currentPushId.value}` : ''}`,
       success: () => {
         console.log('Navigated to answering page');
       },
       fail: (err) => {
         console.error('Navigation failed:', err);
-         uni.showToast({
+        uni.showToast({
           title: '跳转答题页失败',
           icon: 'none'
         });
@@ -357,7 +365,7 @@ const startExam = () => {
     });
   } else {
     console.warn('Cannot start exam: paper ID is missing');
-     uni.showToast({
+    uni.showToast({
       title: '试卷ID缺失',
       icon: 'none'
     });
@@ -539,6 +547,11 @@ onMounted(() => {
   &:active {
     opacity: 0.8;
   }
+}
+
+.preview-button {
+  background-color:rgb(35, 205, 224); /* 示例：橙色 */
+  margin-bottom: 20rpx; /* 与下方按钮的间距 */
 }
 
 .header-title {
