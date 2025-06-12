@@ -37,9 +37,18 @@
         >
           <view class="question-info">
             <text class="question-title">{{ question.paperName }}</text>
-            <text class="question-difficulty">类型：{{ question.typeName || '未知类型' }}</text>
-            <text class="question-score">总分：{{ question.totalScore }}分</text>
-            <text class="question-status">状态：{{ question.statusDesc }}</text>
+            <view class="question-row">
+              <text class="question-difficulty">{{ question.remark || '无备注' }}</text>
+              <text class="question-status">
+                状态：<text :class="['status-value',
+                  question.statusDesc === '已结束' || question.statusDesc === '已取消' ? 'status-red' :
+                  question.statusDesc === '进行中' ? 'status-orange' :
+                  question.statusDesc === '未开始' ? 'status-green' : ''
+                ]">{{ question.statusDesc }}</text>
+              </text>
+            </view>
+            <text class="question-time">开始时间：{{ question.startTime }}</text>
+            <text class="question-time">截止时间：{{ question.deadline }}</text>
           </view>
           <uni-icons type="right" size="16" color="#999"></uni-icons>
         </view>
@@ -50,7 +59,7 @@
 
 <script setup>
 import { onMounted, ref, computed } from 'vue';
-import { getPapersPushList } from '@/api/exam'; // 引入新的接口函数
+import { getPapersPushList, checkExamAttempts } from '@/api/exam'; // 引入新的接口函数
 
 // 模拟数据 -> 实际数据
 const questionList = ref([]);
@@ -94,11 +103,44 @@ const goBack = () => {
   uni.navigateBack();
 };
 
-// 跳转到试卷详情 (修改为跳转到试卷介绍页，并传递 paperId 和 pushId)
-const goToQuestionDetail = (question) => {
-  uni.navigateTo({
-    url: `/pages/exam/intro/index?sourceId=${question.paperId}${question.pushId ? `&pushId=${question.pushId}` : ''}`
-  });
+// 跳转到试卷详情 (先检查是否可以参加考试，再决定是否跳转)
+const goToQuestionDetail = async (question) => {
+  const studentId = uni.getStorageSync('id');
+  const pushId = question.pushId;
+  if (!studentId || !pushId) {
+    uni.showToast({ title: '用户信息缺失', icon: 'none' });
+    return;
+  }
+  try {
+    const res = await checkExamAttempts(studentId, pushId);
+    if (res.flag === '1' && res.result) {
+      if (res.result.canTakeExam) {
+        // 允许考试，跳转
+        uni.navigateTo({
+          url: `/pages/exam/intro/index?sourceId=${question.paperId}${question.pushId ? `&pushId=${question.pushId}` : ''}`
+        });
+      } else {
+        // 不允许考试，提示原因
+        uni.showToast({
+          title: res.result.message || '无法参加考试',
+          icon: 'none',
+          duration: 2500
+        });
+      }
+    } else {
+      uni.showToast({
+        title: res.msg || '检查考试资格失败',
+        icon: 'none',
+        duration: 2000
+      });
+    }
+  } catch (err) {
+    uni.showToast({
+      title: '网络异常，请稍后重试',
+      icon: 'none',
+      duration: 2000
+    });
+  }
 };
 
 // 加载每日推题数据
@@ -223,6 +265,12 @@ onMounted(() => {
     margin-bottom: 5px;
   }
 
+  .question-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
   .question-difficulty {
     font-size: 14px;
     padding: 2px 6px;
@@ -233,7 +281,7 @@ onMounted(() => {
     margin-top: 5px; /* Add some spacing */
   }
 
-  .question-score, .question-status {
+  .question-status {
     font-size: 14px;
     color: #666;
     margin-top: 5px;
@@ -244,5 +292,25 @@ onMounted(() => {
   padding: 20px;
   text-align: center;
   color: #999;
+}
+
+.question-time {
+  font-size: 13px;
+  color: #999;
+  margin-top: 2px;
+  display: block;
+}
+
+.status-value {
+  font-weight: bold;
+}
+.status-red {
+  color: #e74c3c;
+}
+.status-orange {
+  color: #ff9800;
+}
+.status-green {
+  color: #4caf50;
 }
 </style> 

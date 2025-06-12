@@ -6,7 +6,7 @@ import { useUserStore } from '@/stores/user'
 import { getExamDetails } from '@/api/exam'
 
 // 解析数学公式文本的辅助函数
-const parseMathText = (text, imageUrlMap = {}) => {
+export const parseMathText = (text, imageUrlMap = {}) => {
   if (!text || typeof text !== 'string') {
     return [];
   }

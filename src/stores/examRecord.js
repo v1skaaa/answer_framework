@@ -19,6 +19,7 @@ export const useExamRecordStore = defineStore('examRecord', () => {
            startTime: item.examRecord.startTime,
            endTime: item.examRecord.endTime,
            status: item.examRecord.status,
+           postTime: item.examRecord.createdAt,
            totalScore: item.paperQues ? item.paperQues.totalScore : 'N/A',
            myScore: item.examRecord.totalScore,
            paperName: item.paperQues ? item.paperQues.paperName : '未知试卷名称',

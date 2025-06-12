@@ -96,6 +96,13 @@
 				"navigationBarTitleText": "考试记录",
 				"navigationStyle": "custom"
 			}
+		},
+		{
+			"path": "pages/exam/preview/index",
+			"style": {
+				"navigationBarTitleText": "整卷预览",
+				"navigationStyle": "custom"
+			}
 		}
 	],
 	"tabBar": {

@@ -51,4 +51,16 @@ export function getPapersPushList(studentId) {
   });
 }
 
+// 检查是否可以参加考试
+export function checkExamAttempts(studentId, pushId) {
+  return apiService({
+    url: '/api/tenant/exam/check-exam-attempts',
+    method: 'get',
+    params: {
+      studentId,
+      pushId
+    }
+  });
+}
+
 // You can add other exam related API functions here later 

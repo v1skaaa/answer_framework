@@ -47,7 +47,7 @@
     <!-- Fixed bottom button container -->
     <view class="fixed-bottom-button">
        <view class="button-container">
-          <button class="start-button preview-button">整卷预览</button>
+          <button class="start-button preview-button" @click="previewExam">整卷预览</button>
           <button class="start-button" @click="startExam">开始答题</button>
         </view>
     </view>
@@ -365,6 +365,31 @@ const startExam = () => {
     });
   } else {
     console.warn('Cannot start exam: paper ID is missing');
+    uni.showToast({
+      title: '试卷ID缺失',
+      icon: 'none'
+    });
+  }
+};
+
+// 整卷预览按钮点击事件
+const previewExam = () => {
+  if (paper.value && paper.value.id) {
+    uni.navigateTo({
+      url: `/pages/exam/preview/index?sourceId=${paper.value.id}`,
+      success: () => {
+        console.log('Navigated to preview page');
+      },
+      fail: (err) => {
+        console.error('Navigation to preview failed:', err);
+        uni.showToast({
+          title: '试卷预览失败',
+          icon: 'none'
+        });
+      }
+    });
+  } else {
+    console.warn('Cannot preview exam: paper ID is missing');
     uni.showToast({
       title: '试卷ID缺失',
       icon: 'none'
