@@ -51,7 +51,7 @@
                     <view class="question-stem-content">
                          <!-- Iterate through text segments -->
                          <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
-                             <view v-if="segment.type === 'text'" class="question-text-segment">{{ segment.content }}</view>
+                             <view v-if="segment.type === 'text'" class="question-text-segment" v-html="segment.content"></view>
                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                              <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image" @click="previewImage(segment.url)"></image>
                              <text v-else-if="segment.type === 'multipleChoicePrefix'" class="multiple-choice-prefix">{{ segment.content }}</text>
@@ -75,7 +75,7 @@
                                     <view class="option-text-content">
                                         <!-- Iterate through option text segments -->
                                          <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
-                                             <view v-if="segment.type === 'text'" class="option-text-segment">{{ segment.content }}</view>
+                                             <view v-if="segment.type === 'text'" class="option-text-segment" v-html="segment.content"></view>
                                              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                                              <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image" @click="previewImage(segment.url)"></image>
                                          </template>
@@ -152,7 +152,7 @@
                 <view class="question-stem-content">
                      <!-- Iterate through text segments -->
                      <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
-                         <view v-if="segment.type === 'text'" class="question-text-segment">{{ segment.content }}</view>
+                         <view v-if="segment.type === 'text'" class="question-text-segment" v-html="segment.content"></view>
                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                          <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image" @click="previewImage(segment.url)"></image>
                          <text v-else-if="segment.type === 'multipleChoicePrefix'" class="multiple-choice-prefix">{{ segment.content }}</text>
@@ -176,7 +176,7 @@
                                 <view class="option-text-content">
                                     <!-- Iterate through option text segments -->
                                      <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
-                                         <view v-if="segment.type === 'text'" class="option-text-segment">{{ segment.content }}</view>
+                                         <view v-if="segment.type === 'text'" class="option-text-segment" v-html="segment.content"></view>
                                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                                          <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image" @click="previewImage(segment.url)"></image>
                                      </template>

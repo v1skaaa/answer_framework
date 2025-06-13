@@ -24,7 +24,7 @@
             <view class="question-body">
               <view class="question-stem-content">
                 <template v-for="(segment, index) in question.stemSegments" :key="'stem-' + question.qcId + '-' + index">
-                  <view v-if="segment.type === 'text'" class="question-text-segment">{{ segment.content }}</view>
+                  <view v-if="segment.type === 'text'" class="question-text-segment" v-html="segment.content"></view>
                   <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                   <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image"></image>
                 </template>
@@ -34,7 +34,7 @@
                   <text class="option-label">{{ option.label }}:</text>
                   <view class="option-text-content">
                     <template v-for="(segment, segmentIndex) in option.segments" :key="'option-segment-' + question.qcId + '-' + optionIndex + '-' + segmentIndex">
-                      <view v-if="segment.type === 'text'" class="option-text-segment">{{ segment.content }}</view>
+                      <view v-if="segment.type === 'text'" class="option-text-segment" v-html="segment.content"></view>
                       <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                       <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image"></image>
                     </template>
@@ -55,7 +55,7 @@
             <view class="question-body">
               <view class="question-stem-content">
                 <template v-for="(segment, index) in question.stemSegments" :key="'stem-' + question.qbId + '-' + index">
-                  <view v-if="segment.type === 'text'" class="question-text-segment">{{ segment.content }}</view>
+                  <view v-if="segment.type === 'text'" class="question-text-segment" v-html="segment.content"></view>
                   <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                   <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image"></image>
                 </template>
@@ -75,7 +75,7 @@
               <text class="question-score-note">({{ question.score }}分)</text>
               <view class="question-stem-content">
                 <template v-for="(segment, index) in question.stemSegments" :key="'stem-' + question.qaId + '-' + index">
-                  <view v-if="segment.type === 'text'" class="question-text-segment">{{ segment.content }}</view>
+                  <view v-if="segment.type === 'text'" class="question-text-segment" v-html="segment.content"></view>
                   <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                   <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image"></image>
                 </template>

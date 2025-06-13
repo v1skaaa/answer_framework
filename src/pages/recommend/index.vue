@@ -8,7 +8,7 @@
         </view>
       </view>
       <view class="center-section">
-        <text class="header-title">每日推题</text>
+        <text class="header-title">优卷智推</text>
       </view>
       <view class="right-section"></view>
     </view>
