@@ -339,7 +339,28 @@ const goToPaperDetail = (item) => {
 
 // Method to go back to the previous page
 const goBack = () => {
-  uni.navigateBack();
+    // 尝试获取当前页面路由信息
+    const pages = getCurrentPages();
+  // uni.navigateBack();
+  if (pages.length <= 1) {
+    // 从当前 URL 获取参数
+    const currentPage = pages[0];
+    
+    // 构造返回到 intro 页面的 URL
+    let url = '/pages/test/index';
+    
+    // 重新导航到 intro 页面
+    uni.switchTab({
+      url: url,
+      fail: () => {
+        // 如果重定向失败，尝试使用 navigateTo
+        uni.navigateTo({ url: url });
+      }
+    });
+  } else {
+    // 正常场景，直接返回上一页
+    uni.navigateBack();
+  }
 };
 
 // 开始答题按钮点击事件
