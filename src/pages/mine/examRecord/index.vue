@@ -92,7 +92,17 @@ const headerHeight = computed(() => {
 
 // 返回上一页
 const goBack = () => {
-  uni.navigateBack();
+  // 直接使用 switchTab 跳转到 mine 页面
+  uni.switchTab({
+    url: '/pages/mine/index',
+    fail: (err) => {
+      console.error('Navigation failed:', err);
+      uni.showToast({
+        title: '返回失败',
+        icon: 'none'
+      });
+    }
+  });
 };
 
 // 跳转到考试记录详情

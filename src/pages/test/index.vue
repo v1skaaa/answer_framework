@@ -25,16 +25,16 @@ const goToPage = (item) => {
   // 存储当前选中的试卷类型信息
   testStore.setCurrentType(item);
 
-  // 统一跳转到试卷列表页面
+  // 统一跳转到试卷列表页面，并带上 typeId 参数
   uni.navigateTo({ 
-    url: '/pages/test/paperList/index',
+    url: `/pages/test/paperList/index?typeId=${item.typeId}`,
     fail: (err) => {
       console.error('Navigation failed:', err);
       uni.showToast({
         title: '跳转失败',
         icon: 'none'
       });
-  }
+    }
   });
 };
 

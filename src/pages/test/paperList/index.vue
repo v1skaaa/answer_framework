@@ -86,7 +86,29 @@ const headerHeight = computed(() => {
 
 // 返回上一页
 const goBack = () => {
-  uni.navigateBack();
+  // 尝试获取当前页面路由信息
+  const pages = getCurrentPages();
+  
+  // 如果页面栈长度为1，表示当前页面是唯一页面（可能是刷新导致）
+  if (pages.length <= 1) {
+    // 构造返回到 test 页面的 URL
+    let url = '/pages/test/index';
+    
+    // 使用 switchTab 跳转到 tabBar 页面
+    uni.switchTab({
+      url: url,
+      fail: () => {
+        console.error('Navigation failed:', err);
+        uni.showToast({
+          title: '返回失败',
+          icon: 'none'
+        });
+      }
+    });
+  } else {
+    // 正常场景，直接返回上一页
+    uni.navigateBack();
+  }
 };
 
 // 跳转到试卷详情
@@ -98,7 +120,20 @@ const goToPaperDetail = (paper) => {
 
 // 页面加载时获取试卷列表
 onMounted(async () => {
-  if (testStore.currentType?.typeId) {
+  // 从 URL 参数中获取 typeId
+  const pages = getCurrentPages();
+  const currentPage = pages[pages.length - 1];
+  const typeId = currentPage.options?.typeId;
+
+  if (typeId) {
+    try {
+      // 如果 URL 中有 typeId，使用它来获取试卷列表
+      await testStore.fetchPaperList(typeId);
+    } catch (error) {
+      console.error('获取试卷列表失败:', error);
+    }
+  } else if (testStore.currentType?.typeId) {
+    // 如果 URL 中没有 typeId，但有存储的 currentType，使用它
     try {
       await testStore.fetchPaperList(testStore.currentType.typeId);
     } catch (error) {

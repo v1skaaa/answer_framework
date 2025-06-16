@@ -34,7 +34,7 @@
         </view>
       </view>
       <view class="card-right">
-        <image src="/static/right-cartoon.jpg" class="illustration"></image>
+        <image src="/static/boshimao.png" class="illustration"></image>
       </view>
     </view>
     <view class="section-title"><view class="bar"></view>最近做题</view>
@@ -309,12 +309,12 @@ onMounted(() => {
   color: #666;
   cursor: pointer;
   .entry-text {
-    margin-right: 8rpx;
+    margin-right: 8rpx; 
   }
 }
 .card-right {
-  width: 180rpx; /* Adjust as needed */
-  height: 220rpx; /* Adjust as needed */
+  width: 170rpx; /* Adjust as needed */
+  height: 200rpx; /* Adjust as needed */
   display: flex;
   justify-content: flex-end;
   align-items: center;
