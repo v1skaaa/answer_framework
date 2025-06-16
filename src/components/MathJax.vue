@@ -236,6 +236,7 @@ export default {
 
 <style scoped>
 .mathjax-container {
+  max-width: 100%;
   display: inline-block;
   vertical-align: middle;
 }
@@ -265,12 +266,26 @@ export default {
 .math-content mjx-container {
     overflow: hidden;
     margin:0px;
+    /* width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important; */
 }
+
+/* 强制长公式换行 */
+/* .math-content mjx-math {
+  white-space: normal !important;
+  max-width: 100% !important;
+} */
+
 .mjx-chtml {
     letter-spacing: -0.5px; /* 微调字符间距 */
 }
 
 mjx-container[jax="SVG"][display="true"]{
   margin:0px;
+}
+
+:deep(.MathJax > svg) {
+  max-width: 99% !important;
 }
 </style>
