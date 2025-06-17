@@ -19,19 +19,22 @@ export const parseMathText = async (text, imageUrlMap = {}) => {
   const combinedRegex = /(\$\$[\s\S]*?\$\$)|(\$[\s\S]*?\$)|(\[IMAGE_ID:([a-f0-9-]+)\])/g;
   
   let match;
+  const imageMatches = [];
+  
+  // 首先收集所有匹配项
   while ((match = combinedRegex.exec(text)) !== null) {
     const fullMatch = match[0];
     const matchIndex = match.index;
 
-    // Add preceding text segment
+    // 添加文本段落
     if (matchIndex > currentIndex) {
       const textContent = text.substring(currentIndex, matchIndex);
       if (textContent.trim()) {
         segments.push({ type: 'text', content: textContent });
       }
     }
-      
-    // Handle matched segment
+    
+    // 处理匹配项
     if (match[1]) {
       // Display math $$...$$
       segments.push({ type: 'formula', content: match[1].substring(2, match[1].length - 2).trim(), displayMode: true });
@@ -39,27 +42,18 @@ export const parseMathText = async (text, imageUrlMap = {}) => {
       // Inline math $...$
       segments.push({ type: 'formula', content: match[2].substring(1, match[2].length - 1).trim(), displayMode: false });
     } else if (match[3]) {
-      // Image ID [IMAGE_ID:...] - match[3] is the full [IMAGE_ID:xxx] string, match[4] is the ID
+      // Image ID [IMAGE_ID:...]
       const imageId = match[4];
       const imagePath = imageUrlMap[imageId];
       if (imagePath) {
-        try {
-          // 从minio获取图片数据
-          const response = await getImageFromMinio(imagePath);
-          if (response.flag === '1' && response.result?.imageData) {
-            // 构造base64图片URL
-            const base64ImageUrl = `data:${response.result.contentType};base64,${response.result.imageData}`;
-            segments.push({ type: 'image', url: base64ImageUrl });
-          } else {
-            // 如果获取图片失败，显示错误提示
-            segments.push({ type: 'text', content: '[图片加载失败]' });
-          }
-        } catch (error) {
-          console.error('获取图片失败:', error);
-          segments.push({ type: 'text', content: '[图片加载失败]' });
-        }
+        imageMatches.push({
+          index: segments.length,
+          imageId,
+          imagePath
+        });
+        // 先添加一个占位符
+        segments.push({ type: 'image', url: null });
       } else {
-        // If image URL not found, treat the placeholder as plain text
         segments.push({ type: 'text', content: fullMatch });
       }
     }
@@ -67,17 +61,40 @@ export const parseMathText = async (text, imageUrlMap = {}) => {
     currentIndex = matchIndex + fullMatch.length;
   }
   
-  // Add any remaining text after the last match
+  // 添加剩余文本
   if (currentIndex < text.length) {
     const textContent = text.substring(currentIndex);
     if (textContent.trim()) {
       segments.push({ type: 'text', content: textContent });
     }
   }
-      
-  // If no patterns found and original text has content, return it as a single text segment
+  
+  // 如果没有找到任何模式且原始文本有内容，将其作为单个文本段落返回
   if (segments.length === 0 && text.trim()) {
     segments.push({ type: 'text', content: text });
+  }
+
+  // 一张一张处理图片
+  if (imageMatches.length > 0) {
+    for (let i = 0; i < imageMatches.length; i++) {
+      const { index, imagePath } = imageMatches[i];
+      // 在发起下一个图片请求前等待1000ms，第一个图片除外
+      if (i > 0) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      try {
+        const response = await getImageFromMinio(imagePath);
+        if (response.flag === '1' && response.result?.imageData) {
+          const base64Url = `data:${response.result.contentType};base64,${response.result.imageData}`;
+          segments[index].url = base64Url;
+        } else {
+          segments[index] = { type: 'text', content: '[图片加载失败]' };
+        }
+      } catch (error) {
+        console.error('获取图片失败:', error);
+        segments[index] = { type: 'text', content: '[图片加载失败]' };
+      }
+    }
   }
   
   return segments;
@@ -132,8 +149,17 @@ const processImageUrls = async (imageUrls) => {
   if (!imageUrls) return [];
   // 如果imageUrls是字符串，可能是逗号分隔的多个URL
   const urls = typeof imageUrls === 'string' ? imageUrls.split(',').map(url => url.trim()) : imageUrls;
-  // 并发处理所有URL
-  const processedImages = await Promise.all(urls.map(url => processImageUrl(url)));
+  
+  const processedImages = [];
+  for (let i = 0; i < urls.length; i++) {
+    const url = urls[i];
+    if (i > 0) {
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 在每次请求前等待1秒
+    }
+    const processed = await processImageUrl(url);
+    processedImages.push(processed);
+  }
+  
   // 过滤掉处理失败的图片
   return processedImages.filter(img => img !== null);
 };
@@ -234,10 +260,10 @@ export const useExamStore = defineStore('exam', () => {
       if (res.flag === '1' && res.result) {
         console.log('API call successful, res.result:', res.result);
         const imageUrlMap = res.result.imageUrlMap || {};
-        // 处理所有题型
         const processQuestions = async (list, type) => {
           if (!list) return [];
-          return await Promise.all(list.map(async (item) => {
+          const processedList = [];
+          for (const item of list) {
             // 题干
             let textSegments = item.queStem ? await parseMathText(item.queStem, imageUrlMap) : [];
             // Ensure textSegments is an array
@@ -254,14 +280,14 @@ export const useExamStore = defineStore('exam', () => {
             // 选项（仅选择题）
             let options = undefined;
             if (type === 'choice') {
-              options = [
-                { label: 'A', segments: item.optionA ? await parseMathText(item.optionA, imageUrlMap) : [], value: 'A' },
-                { label: 'B', segments: item.optionB ? await parseMathText(item.optionB, imageUrlMap) : [], value: 'B' },
-                { label: 'C', segments: item.optionC ? await parseMathText(item.optionC, imageUrlMap) : [], value: 'C' },
-                { label: 'D', segments: item.optionD ? await parseMathText(item.optionD, imageUrlMap) : [], value: 'D' },
-              ];
+              const processedOptions = [];
+              if (item.optionA) processedOptions.push({ label: 'A', segments: await parseMathText(item.optionA, imageUrlMap), value: 'A' });
+              if (item.optionB) processedOptions.push({ label: 'B', segments: await parseMathText(item.optionB, imageUrlMap), value: 'B' });
+              if (item.optionC) processedOptions.push({ label: 'C', segments: await parseMathText(item.optionC, imageUrlMap), value: 'C' });
+              if (item.optionD) processedOptions.push({ label: 'D', segments: await parseMathText(item.optionD, imageUrlMap), value: 'D' });
+              options = processedOptions.filter(opt => opt.segments.length > 0);
             }
-            return {
+            processedList.push({
               id: item.qcId || item.qbId || item.qaId,
               number: item.queSort,
               type,
@@ -271,15 +297,15 @@ export const useExamStore = defineStore('exam', () => {
               selectedAnswers: type === 'choice' ? [] : undefined,
               selectedAnswer: type !== 'choice' ? '' : undefined,
               score: item.score,
-            };
-          }));
+            });
+          }
+          return processedList;
         };
-        // 并发处理所有题型
-        const [choice, fill, application] = await Promise.all([
-          processQuestions(res.result.choiceQuestions, 'choice'),
-          processQuestions(res.result.blankQuestions, 'fill'),
-          processQuestions(res.result.applicationQuestions, 'application')
-        ]);
+        // 顺序处理所有题型
+        const choice = await processQuestions(res.result.choiceQuestions, 'choice');
+        const fill = await processQuestions(res.result.blankQuestions, 'fill');
+        const application = await processQuestions(res.result.applicationQuestions, 'application');
+        
         // 合并排序
         const all = [...choice, ...fill, ...application].sort((a, b) => a.number - b.number).map((q, index) => ({ ...q, index }));
         questions.value = all;
@@ -817,12 +843,11 @@ export const useExamStore = defineStore('exam', () => {
             };
           }));
         };
-        // 并发处理所有题型
-        const [choice, blank, application] = await Promise.all([
-          processQuestions(res.result.choiceAnswers, '选择题', 1),
-          processQuestions(res.result.blankAnswers, '填空题', 2),
-          processQuestions(res.result.applicationAnswers, '解答题', 3)
-        ]);
+        // 顺序处理所有题型
+        const choice = await processQuestions(res.result.choiceAnswers, '选择题', 1);
+        const blank = await processQuestions(res.result.blankAnswers, '填空题', 2);
+        const application = await processQuestions(res.result.applicationAnswers, '解答题', 3);
+        
         // 合并排序
         const all = [...choice, ...blank, ...application].sort((a, b) => a.number - b.number);
         questions.value = all;

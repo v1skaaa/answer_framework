@@ -1,14 +1,22 @@
 import axios from 'axios';
 import { useUserStore } from '@/stores/user'; // Import the user store
 
-// 创建两个 Axios 实例，分别用于不同的服务
+// 打印当前环境信息
+console.log('Current Environment:', import.meta.env.MODE);
+console.log('Auth Base URL:', import.meta.env.VITE_AUTH_BASE_URL);
+console.log('API Base URL:', import.meta.env.VITE_API_BASE_URL);
+console.log('Full Auth URL example:', import.meta.env.VITE_AUTH_BASE_URL + '/api/auth/tenant/login');
+console.log('Full API URL example:', import.meta.env.VITE_API_BASE_URL + '/api/tenant/exam/all/list');
+
+// 创建认证服务实例
 const authService = axios.create({
-  baseURL: 'http://172.16.99.91:8001',
+  baseURL: import.meta.env.VITE_AUTH_BASE_URL,
   timeout: 5000, // 请求超时时间
 });
 
+// 创建API服务实例
 const apiService = axios.create({
-  baseURL: 'http://172.16.99.91:8002',
+  baseURL: import.meta.env.VITE_API_BASE_URL,
   timeout: 5000,
 });
 
