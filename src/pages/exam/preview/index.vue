@@ -94,6 +94,7 @@ import { onLoad } from '@dcloudio/uni-app';
 import { getQuestionList } from '@/api/exam';
 import MathJax from '@/components/MathJax.vue';
 import { parseMathText } from '@/stores/exam';
+import { processImageUrl } from '@/utils/imageUtils';
 
 // 获取胶囊按钮位置信息和状态栏高度 (从answering页面复制)
 const menuButtonHeight = ref(0);
@@ -153,7 +154,7 @@ const goBack = () => {
     });
   } else {
     // 正常场景，直接返回上一页
-    uni.navigateBack();
+  uni.navigateBack();
   }
 };
 
@@ -197,27 +198,46 @@ const fetchPaperDetail = async (sourceId) => {
       const imageUrlMap = res.result.imageUrlMap || {};
 
       // Process choice questions
-      res.result.choiceQuestions.forEach(q => {
-        q.stemSegments = parseMathText(q.queStem, imageUrlMap);
-        q.processedOptions = [
-          { label: 'A', segments: parseMathText(q.optionA, imageUrlMap) },
-          { label: 'B', segments: parseMathText(q.optionB, imageUrlMap) },
-          { label: 'C', segments: parseMathText(q.optionC, imageUrlMap) },
-          { label: 'D', segments: parseMathText(q.optionD, imageUrlMap) },
-        ].filter(opt => opt.segments.length > 0); // Filter out empty options
-      });
+      const processedChoiceQuestions = await Promise.all(res.result.choiceQuestions.map(async q => {
+        const stemSegments = await parseMathText(q.queStem, imageUrlMap);
+        const processedOptions = await Promise.all([
+          { label: 'A', segments: await parseMathText(q.optionA, imageUrlMap) },
+          { label: 'B', segments: await parseMathText(q.optionB, imageUrlMap) },
+          { label: 'C', segments: await parseMathText(q.optionC, imageUrlMap) },
+          { label: 'D', segments: await parseMathText(q.optionD, imageUrlMap) },
+        ].filter(opt => opt.segments.length > 0)); // Filter out empty options
+
+        return {
+          ...q,
+          stemSegments,
+          processedOptions
+        };
+      }));
 
       // Process blank questions
-      res.result.blankQuestions.forEach(q => {
-        q.stemSegments = parseMathText(q.queStem, imageUrlMap);
-      });
+      const processedBlankQuestions = await Promise.all(res.result.blankQuestions.map(async q => {
+        const stemSegments = await parseMathText(q.queStem, imageUrlMap);
+        return {
+          ...q,
+          stemSegments
+        };
+      }));
 
       // Process application questions
-      res.result.applicationQuestions.forEach(q => {
-        q.stemSegments = parseMathText(q.queStem, imageUrlMap);
-      });
+      const processedApplicationQuestions = await Promise.all(res.result.applicationQuestions.map(async q => {
+        const stemSegments = await parseMathText(q.queStem, imageUrlMap);
+        return {
+          ...q,
+          stemSegments
+        };
+      }));
 
-      paperData.value = res.result;
+      paperData.value = {
+        ...res.result,
+        choiceQuestions: processedChoiceQuestions,
+        blankQuestions: processedBlankQuestions,
+        applicationQuestions: processedApplicationQuestions
+      };
     } else {
       uni.showToast({
         title: '获取试卷详情失败',

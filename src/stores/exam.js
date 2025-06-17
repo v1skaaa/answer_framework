@@ -4,9 +4,10 @@ import { getQuestionList } from '@/api/exam'
 import { submitExamComplete } from '@/api/exam'
 import { useUserStore } from '@/stores/user'
 import { getExamDetails } from '@/api/exam'
+import { getImageFromMinio } from '@/api/exam'
 
 // 解析数学公式文本的辅助函数
-export const parseMathText = (text, imageUrlMap = {}) => {
+export const parseMathText = async (text, imageUrlMap = {}) => {
   if (!text || typeof text !== 'string') {
     return [];
   }
@@ -25,10 +26,10 @@ export const parseMathText = (text, imageUrlMap = {}) => {
     // Add preceding text segment
     if (matchIndex > currentIndex) {
       const textContent = text.substring(currentIndex, matchIndex);
-        if (textContent.trim()) {
+      if (textContent.trim()) {
         segments.push({ type: 'text', content: textContent });
-        }
       }
+    }
       
     // Handle matched segment
     if (match[1]) {
@@ -40,9 +41,23 @@ export const parseMathText = (text, imageUrlMap = {}) => {
     } else if (match[3]) {
       // Image ID [IMAGE_ID:...] - match[3] is the full [IMAGE_ID:xxx] string, match[4] is the ID
       const imageId = match[4];
-      const imageUrl = imageUrlMap[imageId];
-      if (imageUrl) {
-        segments.push({ type: 'image', url: imageUrl });
+      const imagePath = imageUrlMap[imageId];
+      if (imagePath) {
+        try {
+          // 从minio获取图片数据
+          const response = await getImageFromMinio(imagePath);
+          if (response.flag === '1' && response.result?.imageData) {
+            // 构造base64图片URL
+            const base64ImageUrl = `data:${response.result.contentType};base64,${response.result.imageData}`;
+            segments.push({ type: 'image', url: base64ImageUrl });
+          } else {
+            // 如果获取图片失败，显示错误提示
+            segments.push({ type: 'text', content: '[图片加载失败]' });
+          }
+        } catch (error) {
+          console.error('获取图片失败:', error);
+          segments.push({ type: 'text', content: '[图片加载失败]' });
+        }
       } else {
         // If image URL not found, treat the placeholder as plain text
         segments.push({ type: 'text', content: fullMatch });
@@ -55,10 +70,10 @@ export const parseMathText = (text, imageUrlMap = {}) => {
   // Add any remaining text after the last match
   if (currentIndex < text.length) {
     const textContent = text.substring(currentIndex);
-        if (textContent.trim()) {
+    if (textContent.trim()) {
       segments.push({ type: 'text', content: textContent });
-        }
-      }
+    }
+  }
       
   // If no patterns found and original text has content, return it as a single text segment
   if (segments.length === 0 && text.trim()) {
@@ -66,6 +81,15 @@ export const parseMathText = (text, imageUrlMap = {}) => {
   }
   
   return segments;
+};
+
+// 批量处理文本中的图片
+export const processMathTexts = async (texts, imageUrlMap) => {
+  if (!Array.isArray(texts)) {
+    return await parseMathText(texts, imageUrlMap);
+  }
+  
+  return await Promise.all(texts.map(text => parseMathText(text, imageUrlMap)));
 };
 
 // 处理图片ID的辅助函数
@@ -85,6 +109,33 @@ const processImageIds = (text, imageUrlMap) => {
     // 如果没有找到对应的URL，保持原样
     return match;
   });
+};
+
+// 处理图片URL，从minio获取图片数据
+const processImageUrl = async (imageUrl) => {
+  if (!imageUrl) return null;
+  try {
+    const response = await getImageFromMinio(imageUrl);
+    if (response.flag === '1' && response.result?.imageData) {
+      return `data:${response.result.contentType};base64,${response.result.imageData}`;
+    }
+    console.warn('Failed to get image data for URL:', imageUrl);
+    return null;
+  } catch (error) {
+    console.error('Error processing image URL:', imageUrl, error);
+    return null;
+  }
+};
+
+// 处理多个图片URL
+const processImageUrls = async (imageUrls) => {
+  if (!imageUrls) return [];
+  // 如果imageUrls是字符串，可能是逗号分隔的多个URL
+  const urls = typeof imageUrls === 'string' ? imageUrls.split(',').map(url => url.trim()) : imageUrls;
+  // 并发处理所有URL
+  const processedImages = await Promise.all(urls.map(url => processImageUrl(url)));
+  // 过滤掉处理失败的图片
+  return processedImages.filter(img => img !== null);
 };
 
 export const useExamStore = defineStore('exam', () => {
@@ -169,110 +220,70 @@ export const useExamStore = defineStore('exam', () => {
     if (!sourceId) {
       console.warn('No sourceId provided for loading questions.')
       questions.value = []
-      paperId.value = null; // Clear paperId
-      uploadedImages.value = {}; // Clear uploaded images when loading new questions
-      currentPushId.value = null; // Clear pushId as well
+      paperId.value = null;
+      uploadedImages.value = {};
+      currentPushId.value = null;
       return
     }
-
-    // 直接将传入的 sourceId 设置为 paperId
     paperId.value = sourceId;
-    currentPushId.value = pushId; // 存储 pushId
-    console.log('Setting paperId from sourceId parameter:', paperId.value, 'and currentPushId:', currentPushId.value);
-
+    currentPushId.value = pushId;
     try {
       console.log('Calling getQuestionList API...');
       const res = await getQuestionList(sourceId)
       console.log('getQuestionList API response:', res);
       if (res.flag === '1' && res.result) {
         console.log('API call successful, res.result:', res.result);
-
-        const allQuestions = [];
-        const imageUrlMap = res.result.imageUrlMap || {}; // Ensure imageUrlMap is obtained
-
-        // Process choice questions
-        if (res.result.choiceQuestions) {
-          res.result.choiceQuestions.forEach((item) => {
-            // Pass imageUrlMap to parseMathText for both stem and options
-            const questionTextSegments = item.queStem ? parseMathText(item.queStem, imageUrlMap) : [];
-
-            // 如果是多选题 (choiceType === 2)，在题干前面添加提示
-            if (item.choiceType === 2) {
-              questionTextSegments.unshift({
-                type: 'multipleChoicePrefix',
-                content: '(多选题)'
-              });
+        const imageUrlMap = res.result.imageUrlMap || {};
+        // 处理所有题型
+        const processQuestions = async (list, type) => {
+          if (!list) return [];
+          return await Promise.all(list.map(async (item) => {
+            // 题干
+            let textSegments = item.queStem ? await parseMathText(item.queStem, imageUrlMap) : [];
+            // Ensure textSegments is an array
+            if (!Array.isArray(textSegments)) {
+              textSegments = [];
             }
-
-            // Process options with imageUrlMap
-            const processedOptions = [
-              { label: 'A', segments: item.optionA ? parseMathText(item.optionA, imageUrlMap) : [], value: 'A' },
-              { label: 'B', segments: item.optionB ? parseMathText(item.optionB, imageUrlMap) : [], value: 'B' },
-              { label: 'C', segments: item.optionC ? parseMathText(item.optionC, imageUrlMap) : [], value: 'C' },
-              { label: 'D', segments: item.optionD ? parseMathText(item.optionD, imageUrlMap) : [], value: 'D' },
-            ];
-
-            allQuestions.push({
-              id: item.qcId,
+            // 多选题前缀
+            if (item.choiceType === 2 && type === 'choice') {
+              textSegments = [
+                { type: 'multipleChoicePrefix', content: '(多选题)' },
+                ...textSegments
+              ];
+            }
+            // 选项（仅选择题）
+            let options = undefined;
+            if (type === 'choice') {
+              options = [
+                { label: 'A', segments: item.optionA ? await parseMathText(item.optionA, imageUrlMap) : [], value: 'A' },
+                { label: 'B', segments: item.optionB ? await parseMathText(item.optionB, imageUrlMap) : [], value: 'B' },
+                { label: 'C', segments: item.optionC ? await parseMathText(item.optionC, imageUrlMap) : [], value: 'C' },
+                { label: 'D', segments: item.optionD ? await parseMathText(item.optionD, imageUrlMap) : [], value: 'D' },
+              ];
+            }
+            return {
+              id: item.qcId || item.qbId || item.qaId,
               number: item.queSort,
-              type: 'choice',
+              type,
               choiceType: item.choiceType,
-              textSegments: questionTextSegments,
-              options: processedOptions,
-              selectedAnswers: [], // For multiple choice, use an array
+              textSegments,
+              options,
+              selectedAnswers: type === 'choice' ? [] : undefined,
+              selectedAnswer: type !== 'choice' ? '' : undefined,
               score: item.score,
-              // index will be assigned after sorting
-            });
-          });
-        }
-
-        // Process blank questions
-        if (res.result.blankQuestions) {
-           res.result.blankQuestions.forEach((item) => {
-            // Pass imageUrlMap to parseMathText for stem
-            allQuestions.push({
-              id: item.qbId,
-              number: item.queSort,
-              type: 'fill',
-              textSegments: item.queStem ? parseMathText(item.queStem, imageUrlMap) : [],
-              options: [], // Blank questions have no options in this format
-              selectedAnswer: '', // Use a single value for fill-in-the-blank
-              score: item.score,
-              // index will be assigned after sorting
-            });
-          });
-        }
-
-        // Process application questions
-         if (res.result.applicationQuestions) {
-           res.result.applicationQuestions.forEach((item) => {
-            // Pass imageUrlMap to parseMathText for stem
-            allQuestions.push({
-              id: item.qaId,
-              number: item.queSort,
-              type: 'application',
-              textSegments: item.queStem ? parseMathText(item.queStem, imageUrlMap) : [],
-              options: [], // Application questions have no options
-              selectedAnswer: '', // Use a single value for application questions
-              score: item.score,
-              // index will be assigned after sorting
-            });
-          });
-        }
-
-        // Sort questions by queSort (now mapped to 'number')
-        allQuestions.sort((a, b) => a.number - b.number);
-
-        // Assign index after sorting
-        questions.value = allQuestions.map((q, index) => ({ ...q, index }));
-
-        // TODO: Determine paper title from response if available
-        // if (res.result.paperName) {
-        //   paperTitle.value = res.result.paperName;
-        // } else {
-          paperTitle.value = '试卷名称'; // Default title
-        // }
-
+            };
+          }));
+        };
+        // 并发处理所有题型
+        const [choice, fill, application] = await Promise.all([
+          processQuestions(res.result.choiceQuestions, 'choice'),
+          processQuestions(res.result.blankQuestions, 'fill'),
+          processQuestions(res.result.applicationQuestions, 'application')
+        ]);
+        // 合并排序
+        const all = [...choice, ...fill, ...application].sort((a, b) => a.number - b.number).map((q, index) => ({ ...q, index }));
+        questions.value = all;
+        paperTitle.value = res.result.paperName || '试卷名称';
       } else {
         console.error('Failed to load questions:', res.msg)
         uni.showToast({
@@ -718,280 +729,138 @@ export const useExamStore = defineStore('exam', () => {
     }
   }
 
-  // 新增获取考试详情的 action
+  // 新版：解析页异步处理所有图片
   const loadExamDetails = async (recordId) => {
     console.log('loadExamDetails called with recordId:', recordId);
     if (!recordId) {
       console.warn('No recordId provided for loading exam details.');
-      // Optionally load mock data or show an error
       loadMockDataForResult();
       return;
     }
-
     try {
-      console.log('Calling getExamDetails API...');
       const res = await getExamDetails(recordId);
       console.log('getExamDetails API response:', res);
-
       if (res.flag === '1' && res.result) {
-        console.log('Exam details API call successful, res.result:', res.result);
-
+        const imageUrlMap = res.result.imageUrlMap || {};
         const allQuestions = [];
         let totalScoreAchieved = 0;
-        let totalPaperScore = 0; // Calculate total possible score from paper
-        const imageUrlMap = res.result.imageUrlMap || {}; // 获取imageUrlMap
-
-        // Combine and process all question types
-        const processQuestions = (questions, typeName, typeValue) => {
-          if (questions) {
-            questions.forEach(item => {
-              let status = 'unanswered';
-              let studentQuestionScore = 0; // Score for this specific question
-
-              // Add question's total possible score to totalPaperScore
-              totalPaperScore += item.question.score || 0;
-
-              // Determine student's score for this question and status
-              if (item.detailRecord && item.detailRecord.value !== null) {
-                  studentQuestionScore = item.detailRecord.value;
-              } else {
-                  studentQuestionScore = 0; // Default to 0 if value is null or undefined
+        let totalPaperScore = 0;
+        // 处理所有题型
+        const processQuestions = async (questions, typeName, typeValue) => {
+          if (!questions) return [];
+          return await Promise.all(questions.map(async (item) => {
+            // 题干
+            const textSegments = item.question.queStem ? await parseMathText(item.question.queStem, imageUrlMap) : [];
+            // 选项（仅选择题）
+            let options = undefined;
+            if (typeValue === 1) {
+              options = [
+                { label: 'A', segments: item.question.optionA ? await parseMathText(item.question.optionA, imageUrlMap) : [], value: 'A' },
+                { label: 'B', segments: item.question.optionB ? await parseMathText(item.question.optionB, imageUrlMap) : [], value: 'B' },
+                { label: 'C', segments: item.question.optionC ? await parseMathText(item.question.optionC, imageUrlMap) : [], value: 'C' },
+                { label: 'D', segments: item.question.optionD ? await parseMathText(item.question.optionD, imageUrlMap) : [], value: 'D' },
+              ].filter(opt => opt.segments.length > 0);
+            }
+            // 正确答案（填空/解答题）
+            let correctAnswerSegments = null;
+            if (typeValue === 2 && item.question.answer) {
+              correctAnswerSegments = await parseMathText(item.question.answer, imageUrlMap);
+            } else if (typeValue === 3 && item.question.solution) {
+              correctAnswerSegments = await parseMathText(item.question.solution, imageUrlMap);
+            }
+            // 解析
+            const rawAnalysis = item.detailRecord && item.detailRecord.analysis ? item.detailRecord.analysis : (item.question.analysis || '');
+            const analysisSegments = await parseMathText(rawAnalysis, imageUrlMap);
+            // 解答（solution，仅解答题）
+            const rawSolution = item.question.solution || '';
+            const solutionSegments = await parseMathText(rawSolution, imageUrlMap);
+            // 题目状态
+            let status = 'unanswered';
+            let studentQuestionScore = 0;
+            totalPaperScore += item.question.score || 0;
+            if (typeValue === 1) {
+              if (item.detailRecord) {
+                if (item.detailRecord.value !== null) totalScoreAchieved += item.detailRecord.value;
+                if (item.detailRecord.stuAnswer !== null) {
+                  if (item.detailRecord.stuAnswer === item.question.correctAnswer) status = 'correct';
+                  else status = 'incorrect';
+                } else status = 'unanswered';
               }
-
-              if (typeValue === 1) { // Choice questions
-                if (item.detailRecord) {
-                  // Add detailRecord.value to totalScoreAchieved for my score
-                  if (item.detailRecord.value !== null) {
-                    totalScoreAchieved += item.detailRecord.value;
-                  }
-                  // Determine individual question status (correct/incorrect/unanswered)
-                  if (item.detailRecord.stuAnswer !== null) {
-                   if (item.detailRecord.stuAnswer === item.question.correctAnswer) {
-                      status = 'correct';
-                   } else {
-                       status = 'incorrect';
-                   }
-                } else {
-                   status = 'unanswered';
-                }
-                }
-              } else { // Fill-in-the-blank (2) and Application (3) questions
-                // For fill-in-the-blank and application questions, status is always 'unanswered' as per previous logic.
-                // Their score is NOT added to 'my score' (totalScoreAchieved) as per user's request for 'detailRecord.value'.
-                 status = 'unanswered';
-              }
-
-              // 处理题干
-              const questionStemSegments = item.question.queStem ? parseMathText(item.question.queStem, imageUrlMap) : [];
-
-              // 处理选项 (仅选择题)
-              const questionOptions = typeValue === 1 ? (
-                [
-                  { label: 'A', segments: item.question.optionA ? parseMathText(item.question.optionA, imageUrlMap) : [], value: 'A' },
-                  { label: 'B', segments: item.question.optionB ? parseMathText(item.question.optionB, imageUrlMap) : [], value: 'B' },
-                  { label: 'C', segments: item.question.optionC ? parseMathText(item.question.optionC, imageUrlMap) : [], value: 'C' },
-                  { label: 'D', segments: item.question.optionD ? parseMathText(item.question.optionD, imageUrlMap) : [], value: 'D' },
-                ].filter(opt => opt.segments && opt.segments.length > 0)
-              ) : undefined;
-
-              // 处理正确答案 (填空题和解答题可能包含数学公式或图片)
-              let correctAnswerSegments = null;
-              if (typeValue === 2 && item.question.answer) { // For Fill-in-the-blank
-                  correctAnswerSegments = parseMathText(item.question.answer, imageUrlMap);
-              } else if (typeValue === 3 && item.question.solution) { // For Application questions
-                  correctAnswerSegments = parseMathText(item.question.solution, imageUrlMap);
-              }
-
-              // 处理解析
-              const rawAnalysis = item.detailRecord && item.detailRecord.analysis ? item.detailRecord.analysis : (item.question.analysis || '');
-              const analysisSegments = parseMathText(rawAnalysis, imageUrlMap);
-
-              // 处理解答 (solution only for application questions from the question object)
-              const rawSolution = item.question.solution || ''; // This is the solution from the question object, used for parsing solutionSegments
-              const solutionSegments = parseMathText(rawSolution, imageUrlMap);
-
-              const processedQuestion = {
-                id: item.question.qaId || item.question.qbId || 'unknown-' + item.question.queSort,
-                number: item.question.queSort,
-                type: typeName,
-                originalType: typeValue,
-                textSegments: questionStemSegments,
-                options: questionOptions,
-                stuAnswer: item.detailRecord ? item.detailRecord.stuAnswer : null,
-                correctAnswer: item.question.correctAnswer || null, // Keep raw answer for choice type
-                correctAnswerSegments: correctAnswerSegments, // Parsed correct answer for fill/application
-                analysis: rawAnalysis, // Keep raw analysis for display if needed, but primarily use segments
-                analysisSegments: analysisSegments,
-                solution: rawSolution, // Keep raw solution for display if needed, but primarily use segments
-                solutionSegments: solutionSegments,
-                status: status,
-                studentScore: studentQuestionScore,
-                questionScore: item.question.score || 0,
-                imageData: item.detailRecord && item.detailRecord.imageData && item.detailRecord.imageData.length > 0 ? item.detailRecord.imageData : [],
-                imageUrls: item.detailRecord ? item.detailRecord.imageUrls : null,
-                detailRecordId: item.detailRecord ? item.detailRecord.detId : null,
-                teacherComment: item.detailRecord ? item.detailRecord.teacherComment : null,
-              };
-
-              // 如果有图片URL，将其添加到 uploadedImages 中
-              if (item.detailRecord && item.detailRecord.imageUrls) {
-                const questionId = processedQuestion.id;
-                if (!uploadedImages.value[questionId]) {
-                  uploadedImages.value[questionId] = [];
-                }
-                
-                // 将图片URL转换为图片数据对象
-                const imageUrls = Array.isArray(item.detailRecord.imageUrls) 
-                  ? item.detailRecord.imageUrls 
-                  : item.detailRecord.imageUrls.split(',').map(url => url.trim()); // 处理逗号分隔的URL
-                
-                imageUrls.forEach(url => {
-                  if (url) {
-                    uploadedImages.value[questionId].push({
-                      url: url,
-                      uploadTime: new Date().toISOString(),
-                      // 如果有 base64 数据，也保存下来
-                      base64: item.detailRecord.imageDataBase64 || null
-                    });
-                  }
-                });
-
-                // 将处理后的图片URL数组赋值给当前问题的 imageUrls 属性
-                processedQuestion.imageUrls = imageUrls;
-              }
-
-              // Log the processed question data for debugging
-              console.log(`Processed Question ${processedQuestion.number}:`, processedQuestion);
-              // console.log(`Analysis for Question ${processedQuestion.number}:`, processedQuestion.analysis);
-              // console.log(`Analysis Segments for Question ${processedQuestion.number}:`, processedQuestion.analysisSegments);
-
-              allQuestions.push(processedQuestion);
-            });
-          }
-        };
-
-        processQuestions(res.result.choiceAnswers, '选择题', 1);
-        processQuestions(res.result.blankAnswers, '填空题', 2);
-        processQuestions(res.result.applicationAnswers, '解答题', 3);
-
-        // Sort all questions by queSort
-        allQuestions.sort((a, b) => a.number - b.number);
-
-        // Debugging: Log scores before assigning to questions.value
-        // allQuestions.forEach(q => {
-        //     console.log(`Debug - Question ${q.number}: questionScore = ${q.questionScore}, studentScore = ${q.studentScore}`);
-        // });
-
-        // Group sorted questions by type for the result summary display
-        const resultQuestionSummaryGrouped = {};
-        allQuestions.forEach(q => {
-          if (!resultQuestionSummaryGrouped[q.type]) {
-            resultQuestionSummaryGrouped[q.type] = { 
-              name: q.type,
-              count: 0,
-              questions: []
+            }
+            // 处理学生上传的图片
+            let processedImageUrls = [];
+            if (item.detailRecord && item.detailRecord.imageUrls) {
+              processedImageUrls = await processImageUrls(item.detailRecord.imageUrls);
+            }
+            // 组装题目对象
+            return {
+              id: item.question.qaId || item.question.qbId || 'unknown-' + item.question.queSort,
+              number: item.question.queSort,
+              type: typeName,
+              originalType: typeValue,
+              textSegments,
+              options,
+              stuAnswer: item.detailRecord ? item.detailRecord.stuAnswer : null,
+              correctAnswer: item.question.correctAnswer || null,
+              correctAnswerSegments,
+              analysis: rawAnalysis,
+              analysisSegments,
+              solution: rawSolution,
+              solutionSegments,
+              status,
+              studentScore: item.detailRecord && item.detailRecord.value !== null ? item.detailRecord.value : 0,
+              questionScore: item.question.score || 0,
+              imageData: item.detailRecord && item.detailRecord.imageData && item.detailRecord.imageData.length > 0 ? item.detailRecord.imageData : [],
+              imageUrls: processedImageUrls, // 使用处理后的图片URL
+              detailRecordId: item.detailRecord ? item.detailRecord.detId : null,
+              teacherComment: item.detailRecord ? item.detailRecord.teacherComment : null,
             };
+          }));
+        };
+        // 并发处理所有题型
+        const [choice, blank, application] = await Promise.all([
+          processQuestions(res.result.choiceAnswers, '选择题', 1),
+          processQuestions(res.result.blankAnswers, '填空题', 2),
+          processQuestions(res.result.applicationAnswers, '解答题', 3)
+        ]);
+        // 合并排序
+        const all = [...choice, ...blank, ...application].sort((a, b) => a.number - b.number);
+        questions.value = all;
+        // 组装答题卡
+        const resultQuestionSummaryGrouped = {};
+        all.forEach(q => {
+          if (!resultQuestionSummaryGrouped[q.type]) {
+            resultQuestionSummaryGrouped[q.type] = { name: q.type, count: 0, questions: [] };
           }
           resultQuestionSummaryGrouped[q.type].count++;
           resultQuestionSummaryGrouped[q.type].questions.push({
             number: q.number,
-            originalIndex: allQuestions.indexOf(q), // Store original index for potential analysis navigation
-            status: q.status // Use the determined status
+            originalIndex: all.indexOf(q),
+            status: q.status
           });
         });
-
-         // Convert grouped object to ordered array
         const orderedResultTypes = [];
         if (resultQuestionSummaryGrouped['选择题']) orderedResultTypes.push(resultQuestionSummaryGrouped['选择题']);
         if (resultQuestionSummaryGrouped['填空题']) orderedResultTypes.push(resultQuestionSummaryGrouped['填空题']);
         if (resultQuestionSummaryGrouped['解答题']) orderedResultTypes.push(resultQuestionSummaryGrouped['解答题']);
-        // Add any other types if they exist
         for (const typeKey in resultQuestionSummaryGrouped) {
-            if (!['选择题', '填空题', '解答题'].includes(typeKey)) {
-                orderedResultTypes.push(resultQuestionSummaryGrouped[typeKey]);
-            }
+          if (!['选择题', '填空题', '解答题'].includes(typeKey)) {
+            orderedResultTypes.push(resultQuestionSummaryGrouped[typeKey]);
+          }
         }
-
-        // Update store state with fetched data
-        // Assuming paperTitle comes from elsewhere or needs to be added to the API response if not there
-        // For now, using a placeholder or trying to derive from questions if possible
-        paperTitle.value = res.result.paperQues ? res.result.paperQues.paperName : '考试试卷'; // Assuming paper name is available here
-        score.value = totalScoreAchieved; // Use calculated score
-        totalScore.value = totalPaperScore; // Use calculated total paper score
-        timeSpent.value = res.result.examRecord && res.result.examRecord.timeSpent !== null ? Math.floor(res.result.examRecord.timeSpent / 60000) : 0; // Use timeSpent from record if available, in minutes
-        resultQuestionSummary.value = orderedResultTypes; // Update the new state variable
-
-        // Store all questions for potential analysis view later
-        questions.value = allQuestions; // Reuse the existing questions state to store full question data
-
+        paperTitle.value = res.result.paperQues ? res.result.paperQues.paperName : '考试试卷';
+        score.value = totalScoreAchieved;
+        totalScore.value = totalPaperScore;
+        timeSpent.value = res.result.examRecord && res.result.examRecord.timeSpent !== null ? Math.floor(res.result.examRecord.timeSpent / 60000) : 0;
+        resultQuestionSummary.value = orderedResultTypes;
       } else {
         console.error('Failed to load exam details:', res.msg);
-        // Optionally load mock data or show an error
-         loadMockDataForResult();
+        loadMockDataForResult();
       }
-
     } catch (error) {
       console.error('Error fetching exam details:', error);
-      // Optionally load mock data or show an error
-       loadMockDataForResult();
+      loadMockDataForResult();
     }
-  };
-
-  // Mock data for result page (different from answering page mock)
-  const loadMockDataForResult = () => {
-      paperTitle.value = '模拟试卷（无数据）';
-      score.value = 10;
-      totalScore.value = 150;
-      timeSpent.value = 0;
-      resultQuestionSummary.value = [
-          { name: '选择题', count: 9, questions: [
-              { number: 1, originalIndex: 0, status: 'correct' },
-              { number: 2, originalIndex: 1, status: 'incorrect' },
-              { number: 3, originalIndex: 2, status: 'unanswered' },
-              { number: 4, originalIndex: 3, status: 'correct' },
-              { number: 5, originalIndex: 4, status: 'incorrect' },
-              { number: 6, originalIndex: 5, status: 'correct' },
-              { number: 7, originalIndex: 6, status: 'unanswered' },
-              { number: 8, originalIndex: 7, status: 'incorrect' },
-              { number: 9, originalIndex: 8, status: 'correct' },
-          ]},
-           { name: '填空题', count: 6, questions: [
-              { number: 10, originalIndex: 9, status: 'answered' },
-              { number: 11, originalIndex: 10, status: 'unanswered' },
-              { number: 12, originalIndex: 11, status: 'answered' },
-              { number: 13, originalIndex: 12, status: 'unanswered' },
-              { number: 14, originalIndex: 13, status: 'answered' },
-              { number: 15, originalIndex: 14, status: 'unanswered' },
-          ]},
-           { name: '解答题', count: 5, questions: [
-              { number: 16, originalIndex: 15, status: 'answered' },
-              { number: 17, originalIndex: 16, status: 'unanswered' },
-              { number: 18, originalIndex: 17, status: 'answered' },
-              { number: 19, originalIndex: 18, status: 'unanswered' },
-              { number: 20, originalIndex: 19, status: 'answered' },
-          ]},
-      ];
-
-       // Populate questions state with mock data structure for potential analysis
-        questions.value = resultQuestionSummary.value.flatMap(type => type.questions.map(q => ({
-            id: 'mock-id-' + q.number,
-            number: q.number,
-            type: type.name,
-            originalType: type.name === '选择题' ? 1 : (type.name === '填空题' ? 2 : 3),
-            textSegments: [{ type: 'text', content: 'Mock Question ' + q.number }],
-            options: type.originalType === 1 ? [] : undefined,
-            stuAnswer: q.status === 'unanswered' ? null : 'mock answer',
-            correctAnswer: q.status === 'correct' ? 'mock answer' : 'other answer',
-            analysis: 'Mock analysis for question ' + q.number,
-            solution: 'Mock solution for question ' + q.number,
-            status: q.status,
-            studentScore: q.status === 'correct' ? 5 : 0,
-            questionScore: 5,
-            imageData: [],
-            imageUrls: null,
-            detailRecordId: 'mock-detail-id-' + q.number
-        })));
-
   };
 
   return {
@@ -1034,7 +903,6 @@ export const useExamStore = defineStore('exam', () => {
     clearImages,
     resetUploadedImages,
     toggleFavorite,
-    loadExamDetails,
-    loadMockDataForResult
+    loadExamDetails
   }
 }) 

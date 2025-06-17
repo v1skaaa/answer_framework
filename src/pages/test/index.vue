@@ -34,7 +34,7 @@ const goToPage = (item) => {
         title: '跳转失败',
         icon: 'none'
       });
-    }
+  }
   });
 };
 

@@ -765,8 +765,24 @@ onLoad((options) => {
     currentPushId.value = options.pushId || null; // 获取 pushId
     console.log('answering: Received sourceId from options:', sourceId);
     console.log('answering: Received pushId from options:', currentPushId.value); // 打印 pushId
-    // loadQuestions 会更新 examStore.questions，从而触发 watch 监听
-    examStore.loadQuestions(sourceId, currentPushId.value); // 传递 pushId
+    
+    // 添加错误处理
+    try {
+      // loadQuestions 会更新 examStore.questions，从而触发 watch 监听
+      examStore.loadQuestions(sourceId, currentPushId.value).catch(error => {
+        console.error('加载题目失败:', error);
+        uni.showToast({
+          title: '加载题目失败',
+          icon: 'none'
+        });
+      });
+    } catch (error) {
+      console.error('加载题目时发生错误:', error);
+      uni.showToast({
+        title: '加载题目失败',
+        icon: 'none'
+      });
+    }
   } else {
     console.warn('answering: No sourceId received from options.');
     uni.showToast({

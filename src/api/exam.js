@@ -63,4 +63,13 @@ export function checkExamAttempts(studentId, pushId) {
   });
 }
 
+// 从minio获取图片数据
+export const getImageFromMinio = (imagePath) => {
+  return apiService({
+    url: '/api/tenant/exam/image',
+    method: 'get',
+    params: { imagePath }
+  });
+};
+
 // You can add other exam related API functions here later 

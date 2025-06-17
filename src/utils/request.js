@@ -3,12 +3,12 @@ import { useUserStore } from '@/stores/user'; // Import the user store
 
 // 创建两个 Axios 实例，分别用于不同的服务
 const authService = axios.create({
-  baseURL: 'http://172.16.99.32:8001',
+  baseURL: 'http://172.16.99.91:8001',
   timeout: 5000, // 请求超时时间
 });
 
 const apiService = axios.create({
-  baseURL: 'http://172.16.99.32:8002',
+  baseURL: 'http://172.16.99.91:8002',
   timeout: 5000,
 });
 
