@@ -39,7 +39,7 @@ export const processImageUrl = async (content, imageUrlMap, onImageProcessed) =>
   let i = 0;
   for (const [imageId, path] of imageIdToPath) {
     if (i > 0) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 100));
     }
     const base64Url = await processSingleImage(path);
     if (base64Url) {

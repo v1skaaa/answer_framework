@@ -80,7 +80,7 @@ export const parseMathText = async (text, imageUrlMap = {}) => {
       const { index, imagePath } = imageMatches[i];
       // 在发起下一个图片请求前等待1000ms，第一个图片除外
       if (i > 0) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 100));
       }
       try {
         const response = await getImageFromMinio(imagePath);
@@ -154,7 +154,7 @@ const processImageUrls = async (imageUrls) => {
   for (let i = 0; i < urls.length; i++) {
     const url = urls[i];
     if (i > 0) {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // 在每次请求前等待1秒
+      await new Promise(resolve => setTimeout(resolve, 100)); // 在每次请求前等待1秒
     }
     const processed = await processImageUrl(url);
     processedImages.push(processed);
@@ -608,11 +608,118 @@ export const useExamStore = defineStore('exam', () => {
         size: imageInfo.size // 注意：某些平台可能不支持获取文件大小
       });
 
+      // 自定义图片压缩函数
+      const compressImage = async (imagePath, quality = 0.8) => {
+        try {
+          // 获取图片信息
+          const imgInfo = await uni.getImageInfo({
+            src: imagePath
+          });
+          
+          // 计算压缩后的尺寸，保持宽高比
+          let targetWidth = imgInfo.width;
+          let targetHeight = imgInfo.height;
+          
+          // 如果图片太大，按比例缩小
+          const MAX_WIDTH = 1024; // 最大宽度
+          const MAX_HEIGHT = 1024; // 最大高度
+          
+          if (targetWidth > MAX_WIDTH || targetHeight > MAX_HEIGHT) {
+            const ratio = Math.min(MAX_WIDTH / targetWidth, MAX_HEIGHT / targetHeight);
+            targetWidth = Math.floor(targetWidth * ratio);
+            targetHeight = Math.floor(targetHeight * ratio);
+          }
+          
+          // 创建canvas上下文
+          return new Promise((resolve, reject) => {
+            // #ifdef H5
+            // H5平台使用FileReader和canvas压缩
+            const canvas = document.createElement('canvas');
+            canvas.width = targetWidth;
+            canvas.height = targetHeight;
+            const ctx = canvas.getContext('2d');
+            
+            const img = new Image();
+            img.onload = function() {
+              ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+              // 转为base64，quality为压缩质量
+              const base64 = canvas.toDataURL('image/jpeg', quality);
+              resolve(base64);
+            };
+            img.onerror = function(e) {
+              console.error('Canvas压缩图片失败:', e);
+              reject(e);
+            };
+            img.src = imagePath;
+            // #endif
+            
+            // #ifndef H5
+            // 非H5平台，尝试使用uni.createCanvasContext
+            try {
+              const canvasId = 'compressCanvas' + Date.now();
+              const ctx = uni.createCanvasContext(canvasId);
+              
+              ctx.drawImage(imagePath, 0, 0, targetWidth, targetHeight);
+              ctx.draw(false, () => {
+                // 延迟执行，确保canvas已经绘制完成
+                setTimeout(() => {
+                  uni.canvasToTempFilePath({
+                    canvasId: canvasId,
+                    quality: quality,
+                    success: (res) => {
+                      resolve(res.tempFilePath);
+                    },
+                    fail: (err) => {
+                      console.error('Canvas导出图片失败:', err);
+                      reject(err);
+                    }
+                  });
+                }, 300);
+              });
+            } catch (err) {
+              console.error('Canvas压缩图片失败:', err);
+              reject(err);
+            }
+            // #endif
+          });
+        } catch (error) {
+          console.error('压缩图片过程出错:', error);
+          return imagePath; // 出错时返回原图
+        }
+      };
+
+      // 压缩图片
+      let compressedPath = tempFilePath;
+      let isCompressed = false;
+      try {
+        // 只有当图片宽度或高度大于1024时才进行压缩
+        if (imageInfo.width > 1024 || imageInfo.height > 1024) {
+          const result = await compressImage(tempFilePath, 0.5);
+          if (result && result !== tempFilePath) {
+            compressedPath = result;
+            isCompressed = true;
+            console.log('图片压缩成功');
+          }
+        } else {
+          console.log('图片尺寸较小，无需压缩');
+        }
+      } catch (compressError) {
+        console.warn('图片压缩过程出错，将使用原图:', compressError);
+        // 压缩失败继续使用原图
+      }
+
       // 将图片转换为 base64
       const base64 = await new Promise((resolve, reject) => {
         // #ifdef H5
+        // 如果已经是base64格式（H5压缩后的结果），直接提取数据部分
+        if (isCompressed && compressedPath.startsWith('data:')) {
+          const base64Data = compressedPath.split(',')[1];
+          resolve(base64Data);
+          return;
+        }
+        
         const xhr = new XMLHttpRequest();
-        xhr.open('GET', tempFilePath, true);
+        xhr.open('GET', compressedPath, true);
         xhr.responseType = 'blob';
         xhr.onload = function() {
           if (this.status === 200) {
@@ -635,7 +742,7 @@ export const useExamStore = defineStore('exam', () => {
 
         // #ifndef H5
         uni.getFileSystemManager().readFile({
-          filePath: tempFilePath,
+          filePath: compressedPath,
           encoding: 'base64',
           success: (res) => {
             resolve(res.data);
@@ -662,11 +769,12 @@ export const useExamStore = defineStore('exam', () => {
       
       // 添加图片到当前题目的图片列表
       const imageData = {
-        url: tempFilePath, // 实际项目中应该是上传后的URL
-        tempFilePath: tempFilePath,
+        url: compressedPath, // 使用压缩后的图片路径
+        tempFilePath: tempFilePath, // 保留原始路径
         uploadTime: new Date().toISOString(),
         imageInfo: imageInfo, // 保存图片信息
-        base64: base64 // 保存 base64 编码
+        base64: base64, // 保存 base64 编码
+        compressed: isCompressed // 标记是否经过压缩
       };
       
       uploadedImages.value[questionId].push(imageData);
@@ -693,7 +801,8 @@ export const useExamStore = defineStore('exam', () => {
         currentQ.selectedAnswer.images.push({
           base64: base64,
           uploadTime: new Date().toISOString(),
-          imageInfo: imageInfo
+          imageInfo: imageInfo,
+          compressed: isCompressed
         });
         console.log('当前题目的答案:', currentQ.selectedAnswer);
       }

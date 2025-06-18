@@ -11,13 +11,13 @@ console.log('Full API URL example:', import.meta.env.VITE_API_BASE_URL + '/api/t
 // 创建认证服务实例
 const authService = axios.create({
   baseURL: import.meta.env.VITE_AUTH_BASE_URL,
-  timeout: 5000, // 请求超时时间
+  timeout: 50000, // 请求超时时间
 });
 
 // 创建API服务实例
 const apiService = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
-  timeout: 5000,
+  timeout: 50000,
 });
 
 // Flag to prevent multiple token refresh requests
