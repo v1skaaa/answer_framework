@@ -72,4 +72,17 @@ export const getImageFromMinio = (imagePath) => {
   });
 };
 
+// 获取指定时间范围内的错题数量统计
+export const getWrongQuestionCount = (studentId, startTime, endTime) => {
+  return apiService({
+    url: '/api/tenant/exam/wrongQuestion/count',
+    method: 'get',
+    params: {
+      studentId,
+      startTime,
+      endTime
+    }
+  });
+};
+
 // You can add other exam related API functions here later 

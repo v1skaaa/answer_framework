@@ -53,7 +53,7 @@ import { ref, computed, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useExamRecordStore } from '@/stores/examRecord';
 import { useExamStore } from '@/stores/exam'; // 导入 exam store
-// uni-icons will be automatically imported via easycom
+
 
 const examRecordStore = useExamRecordStore();
 const examStore = useExamStore(); // 使用 exam store

@@ -297,7 +297,7 @@
           </view>
         </scroll-view>
         <view class="card-footer">
-          <button class="submit-button" @click="examStore.submitExam">交卷并查看结果</button>
+          <button class="submit-button" @click="handleSubmit">交卷并查看结果</button>
         </view>
       </view>
     </view>
@@ -736,6 +736,11 @@ const handleNextQuestion = () => {
     }
 };
 
+// 处理提交按钮点击
+const handleSubmit = () => {
+  examStore.submitExam();
+};
+
 onMounted(() => {
   // 获取胶囊按钮位置信息
   // #ifdef MP-WEIXIN
@@ -1039,7 +1044,7 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
+  z-index: 900;
   display: flex;
   visibility: hidden;
   opacity: 0;

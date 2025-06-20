@@ -8,6 +8,9 @@ export function login(data) {
     data: {
       name: data.username,
       pwd: data.password
+    },
+    headers: {
+      'X-Tenant-ID': data.tenantId
     }
   });
 }

@@ -3,6 +3,15 @@ import { getImageFromMinio } from '@/api/exam';
 // 处理单个图片URL
 const processSingleImage = async (imagePath) => {
   try {
+    // 去掉前面的域名和端口，只保留相对路径
+    //if (imagePath && imagePath.startsWith('http')) {
+    //  try {
+    //    const url = new URL(imagePath);
+    //    imagePath = url.pathname + url.search; // 只保留路径和查询参数
+    //  } catch (e) {
+        // 如果不是合法URL，保持原样
+    //  }
+    //}
     const response = await getImageFromMinio(imagePath);
     if (response.flag === '1' && response.result?.imageData) {
       return `data:${response.result.contentType};base64,${response.result.imageData}`;

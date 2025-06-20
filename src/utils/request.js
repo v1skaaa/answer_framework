@@ -20,12 +20,12 @@ const apiService = axios.create({
   timeout: 50000,
 });
 
-// Flag to prevent multiple token refresh requests
+// 防止多个令牌刷新请求的标志
 let isRefreshing = false;
-// Queue of requests to be retried after token refresh
+// 令牌刷新后要重试的请求队列
 let requests = [];
 
-// Helper function to process the queue with the new token
+// 使用新令牌处理队列的Helper函数
 function processQueue(error, token = null) {
   requests.forEach(p => {
     if (error) {
@@ -61,6 +61,13 @@ apiService.interceptors.request.use(
     const token = uni.getStorageSync('accessToken');
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    // 自动加 X-Tenant-ID，登录接口除外
+    if (!config.url.includes('/auth/tenant/login')) {
+      const tenantId = uni.getStorageSync('X-Tenant-ID');
+      if (tenantId) {
+        config.headers['X-Tenant-ID'] = tenantId;
+      }
     }
     return config;
   },
@@ -99,27 +106,27 @@ authService.interceptors.response.use(
     // 对响应错误做些什么
     console.error('Auth Response Error:', error);
     const originalRequest = error.config;
-    const userStore = useUserStore(); // Get store instance
+    const userStore = useUserStore(); // 获取存储实例
 
-    // Check if the error is a 401 Unauthorized and it's not a refresh token request itself
+    // 检查错误是否为401 Unauthorized，并且它本身不是刷新令牌请求
     if (error.response && error.response.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true; // Mark this request as retried to avoid infinite loops
+      originalRequest._retry = true; // 将此请求标记为重试以避免无限循环
 
       if (!isRefreshing) {
         isRefreshing = true;
         try {
-          await userStore.refreshAccessToken(); // Call the refresh token action
-          processQueue(null, userStore.accessToken); // Process all pending requests with the new token
-          return authService(originalRequest); // Retry the original request
+          await userStore.refreshAccessToken(); // 调用刷新令牌操作
+          processQueue(null, userStore.accessToken); // 用新令牌处理所有挂起的请求
+          return authService(originalRequest); // 重试原始请求
         } catch (refreshError) {
-          processQueue(refreshError); // Propagate refresh error to all pending requests
-          // The refreshAccessToken action already redirects to login on failure
+          processQueue(refreshError); // 将刷新错误传播到所有挂起的请求
+          // refreshAccessToken操作已经在失败时重定向到登录
           return Promise.reject(refreshError);
         } finally {
           isRefreshing = false;
         }
       } else {
-        // If a refresh is already in progress, queue the current request
+        // 如果刷新已经在进行中，则将当前请求排队
         return new Promise((resolve, reject) => {
           requests.push({ resolve, reject });
         }).then(token => {
@@ -131,7 +138,7 @@ authService.interceptors.response.use(
       }
     }
 
-    // Unified handling for network errors, timeouts, etc.
+    // 统一处理网络错误，超时等。
     uni.showToast({
       title: error.message || '网络错误',
       icon: 'none'

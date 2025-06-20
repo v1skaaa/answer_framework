@@ -38,6 +38,18 @@
         </view>
       </view>
       
+      <view class="form-item">
+        <text class="label">学校</text>
+        <picker :range="tenantOptions" range-key="label" @change="onTenantChange">
+          <view class="picker-input" :class="{active: state.tenantIndex !== -1}">
+            <text :class="{placeholder: state.tenantIndex === -1}">
+              {{ tenantOptions[state.tenantIndex]?.label || '请选择学校' }}
+            </text>
+            <uni-icons type="bottom" size="18" color="#a6c0fe"  />
+          </view>
+        </picker>
+      </view>
+      
       <view class="remember-wrapper">
         <checkbox-group @change="rememberChange">
           <label class="remember-label">
@@ -70,16 +82,28 @@ import { useUserStore } from '@/stores/user';
 
 const userStore = useUserStore();
 const state = reactive({
-  username: '',
-  password: '',
-  rememberMe: false,
-  loading: false,
+  username: '',//绑定用户名
+  password: '',// 绑定密码
+  rememberMe: false,// 记住我状态
+  loading: false,// 登录加载状态
   usernameFocus: false,
-  passwordFocus: false
+  passwordFocus: false,
+  tenantIndex: -1,// 选中的学校索引
+  tenantId: null// 学校ID
 });
+
+const tenantOptions = [ // 学校选项配置
+  { label: '梧州一中', value: 1 },
+  { label: '梧州二中', value: 2 }
+];
 
 const rememberChange = (e) => {
   state.rememberMe = e.detail.value.length > 0;
+};
+
+const onTenantChange = (e) => {
+  state.tenantIndex = e.detail.value;
+  state.tenantId = tenantOptions[state.tenantIndex].value;
 };
 
 const handleLogin = async () => {
@@ -92,20 +116,24 @@ const handleLogin = async () => {
       })
       return
     }
-    
+    if (!state.tenantId) {
+      uni.showToast({
+        title: '请选择学校',
+        icon: 'none'
+      });
+      return;
+    }
     console.log('准备调用登录接口，参数:', {
       username: state.username,
-      password: state.password
+      password: state.password,
+      tenantId: state.tenantId
     })
-    
     const res = await userStore.loginAction({
       username: state.username,
-      password: state.password
+      password: state.password,
+      tenantId: state.tenantId
     })
-    
     console.log('登录接口返回:', res)
-    
-    // 检查返回数据
     if (!res) {
       console.error('登录返回数据为空')
       uni.showToast({
@@ -114,9 +142,9 @@ const handleLogin = async () => {
       })
       return
     }
-    
+    // 登录成功后保存tenantId
+    uni.setStorageSync('X-Tenant-ID', state.tenantId);
     console.log('登录成功，准备跳转')
-    // 使用 switchTab 跳转到首页
     uni.switchTab({
       url: '/pages/index/index',
       success: () => {
@@ -246,7 +274,7 @@ checkRememberedAccount();
           justify-content: center;
           width: 50rpx;
           height: 50rpx;
-          margin-left: 10rpx;
+          margin-left: 100rpx;
         }
       }
     }
@@ -344,6 +372,32 @@ checkRememberedAccount();
     background-size: 100% 100%;
     z-index: 1;
     opacity: 0.7;
+  }
+}
+
+.picker-input {
+  display: flex;
+  align-items: center;
+  border: 1.5px solid #e6e6e6;
+  border-radius: 45rpx;
+  justify-content: space-between;
+  padding: 0 30rpx;
+  height: 90rpx;
+  background-color: #fff;
+  font-size: 28rpx;
+  color: #333;
+  margin-bottom: 10rpx;
+  transition: all 0.3s;
+  cursor: pointer;
+
+  &.active {
+    border-color: #a6c0fe;
+    box-shadow: 0 0 12rpx rgba(166, 192, 254, 0.4);
+    color: #333;
+  }
+
+  .placeholder {
+    color: #bbb;
   }
 }
 </style> 

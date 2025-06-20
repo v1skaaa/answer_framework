@@ -6,6 +6,20 @@ import { useUserStore } from '@/stores/user'
 import { getExamDetails } from '@/api/exam'
 import { getImageFromMinio } from '@/api/exam'
 
+// 工具函数：去除图片路径中的域名和端口，只保留相对路径
+function normalizeImagePath(path) {
+  if (path && typeof path === 'string' && path.startsWith('http')) {
+    try {
+      const url = new URL(path);
+      return url.pathname + url.search;
+    } catch (e) {
+      // 不是合法URL，保持原样
+      return path;
+    }
+  }
+  return path;
+}
+
 // 解析数学公式文本的辅助函数
 export const parseMathText = async (text, imageUrlMap = {}) => {
   if (!text || typeof text !== 'string') {
@@ -78,12 +92,12 @@ export const parseMathText = async (text, imageUrlMap = {}) => {
   if (imageMatches.length > 0) {
     for (let i = 0; i < imageMatches.length; i++) {
       const { index, imagePath } = imageMatches[i];
-      // 在发起下一个图片请求前等待1000ms，第一个图片除外
+      // 在发起下一个图片请求前等待100ms，第一个图片除外
       if (i > 0) {
         await new Promise(resolve => setTimeout(resolve, 100));
       }
       try {
-        const response = await getImageFromMinio(imagePath);
+        const response = await getImageFromMinio(normalizeImagePath(imagePath));
         if (response.flag === '1' && response.result?.imageData) {
           const base64Url = `data:${response.result.contentType};base64,${response.result.imageData}`;
           segments[index].url = base64Url;
@@ -132,7 +146,7 @@ const processImageIds = (text, imageUrlMap) => {
 const processImageUrl = async (imageUrl) => {
   if (!imageUrl) return null;
   try {
-    const response = await getImageFromMinio(imageUrl);
+    const response = await getImageFromMinio(normalizeImagePath(imageUrl));
     if (response.flag === '1' && response.result?.imageData) {
       return `data:${response.result.contentType};base64,${response.result.imageData}`;
     }
@@ -413,8 +427,15 @@ export const useExamStore = defineStore('exam', () => {
   const submitExam = async () => {
     stopTimer()
     console.log('准备提交考试')
+    // 显示加载提示
+    uni.showLoading({
+      title: '正在提交试卷...',
+      mask: true
+    }); 
+    console.log('正在提交试卷')
     
     if (!paperId.value) {
+      uni.hideLoading();
       console.error('无法提交考试：缺少 paperId');
       uni.showToast({
         title: '无法提交考试：缺少试卷ID',
@@ -427,6 +448,7 @@ export const useExamStore = defineStore('exam', () => {
     const userStore = useUserStore();
     const studentId = userStore.id;
     if (!studentId) {
+      uni.hideLoading();
       console.error('无法提交考试：缺少 studentId，用户可能未登录');
       uni.showToast({
         title: '无法提交考试：请先登录',
@@ -557,26 +579,30 @@ export const useExamStore = defineStore('exam', () => {
       const response = await submitExamComplete(submissionData);
       console.log('提交接口响应:', response);
       
-      // TODO: 根据提交接口的实际响应进行处理
-      if (response && response.flag === '1') { // 假设 flag === '1' 表示成功
-          uni.showToast({
-            title: response.msg || '交卷成功',
-            icon: 'success'
-          });
-          // 导航到结果页面或其他后续页面
-            uni.redirectTo({
-            url: '/pages/exam/result/index?recordId=' + response.result // 请替换为你的实际结果页路径，并加上recordId参数
-          });
+      if (response && response.flag === '1') {
+        uni.showToast({
+          title: response.msg || '交卷成功',
+          icon: 'success',
+          duration: 1500,
+          complete: () => {
+            uni.hideLoading();
+            setTimeout(() => {
+              uni.redirectTo({
+                url: '/pages/exam/result/index?recordId=' + response.result
+              });
+            }, 1500);
+          }
+        });
       } else {
-         // 处理提交失败
-         uni.showModal({
-           title: '提交失败',
-           content: response.msg || '试卷提交失败，请稍后再试。',
-           showCancel: false
-         });
+        uni.hideLoading();
+        uni.showModal({
+          title: '提交失败',
+          content: response.msg || '试卷提交失败，请稍后再试。',
+          showCancel: false
+        });
       }
-
     } catch (error) {
+      uni.hideLoading();
       console.error('提交考试异常:', error);
       uni.showModal({
         title: '提交失败',

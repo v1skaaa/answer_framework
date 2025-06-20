@@ -10,8 +10,8 @@
         <text class="stats-value">{{ userStats.totalQuestions }}</text>
       </view>
       <text class="stats-divider">|</text>
-      <view class="stats-item">
-        <text class="stats-label">错题本</text>
+      <view class="stats-item" @click="navToWrongQuestions">
+        <text class="stats-label">错题集</text>
         <text class="stats-value">{{ userStats.wrongQuestions }}</text>
       </view>
       <text class="stats-divider">|</text>
@@ -69,6 +69,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useUserDetailStore } from '@/stores/userDetail';
+import { getWrongQuestionCount } from '@/api/exam';
 
 // 保留原有的用户信息和统计数据模拟，根据需要进行调整
 const userInfo = ref({
@@ -93,6 +94,26 @@ const userStats = ref({
 const navTo = (url) => {
   uni.navigateTo({
     url: url
+  });
+};
+
+// 修改错题集点击事件
+const navToWrongQuestions = () => {
+  const studentId = uni.getStorageSync('id');
+  // 获取当前时间作为结束时间
+  const now = new Date();
+  now.setMinutes(0);
+  now.setSeconds(0);
+  const endTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:00:00`;
+
+  // 获取5天前的时间作为开始时间
+  const startDate = new Date(now);
+  startDate.setDate(now.getDate() - 5);
+  const startTime = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, '0')}-${String(startDate.getDate()).padStart(2, '0')} ${String(startDate.getHours()).padStart(2, '0')}:00:00`;
+
+  // 跳转到错题集页面，使用 encodeURIComponent 编码时间字符串
+  uni.navigateTo({
+    url: `/pages/mine/wrongQuestions/index?studentId=${studentId}&startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`
   });
 };
 

@@ -103,6 +103,13 @@
 				"navigationBarTitleText": "整卷预览",
 				"navigationStyle": "custom"
 			}
+		},
+		{
+			"path": "pages/mine/wrongQuestions/index",
+			"style": {
+				"navigationBarTitleText": "错题集",
+				"navigationStyle": "custom"
+			}
 		}
 	],
 	"tabBar": {
