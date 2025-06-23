@@ -286,6 +286,6 @@ mjx-container[jax="SVG"][display="true"]{
 }
 
 :deep(.MathJax > svg) {
-  max-width: 99% !important;
+  max-width: 90% !important;
 }
 </style>

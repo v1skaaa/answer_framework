@@ -232,6 +232,11 @@ menuButtonHeight.value = h5HeaderHeight;
 const headerHeight = computed(() => {
   // #ifdef MP-WEIXIN
   return menuButtonTop.value + menuButtonHeight.value + 'px';
+  // #endif
+  // #ifdef H5
+  return (statusBarHeight.value + h5HeaderHeight) + 'px';
+  // #endif
+  return '64px';
 });
 
 const goBack = () => {
@@ -854,10 +859,10 @@ onLoad(async (options) => {
 }
 
 .knowledge-tag {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #7a7aff;
   color: #fff;
-  padding: 8rpx 16rpx;
-  border-radius: 20rpx;
+  padding: 12rpx 18rpx;
+  border-radius: 25rpx;
   font-size: 24rpx;
 }
 
