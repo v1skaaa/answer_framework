@@ -126,7 +126,7 @@
             <view class="similar-questions-section">
               <button class="similar-questions-btn" @click="goToSimilarQuestions">
                 <uni-icons type="lightbulb" size="20" color="#007aff"></uni-icons>
-                <text class="similar-btn-text">查看相似题目</text>
+                <text class="similar-btn-text">查找相似题目</text>
               </button>
             </view>
           </view>

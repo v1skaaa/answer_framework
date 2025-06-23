@@ -147,7 +147,7 @@
                     </view>
 
                     <!-- 知识点 -->
-                    <view v-if="question.knowledgePoints && question.knowledgePoints.length > 0" class="knowledge-section">
+                    <!-- <view v-if="question.knowledgePoints && question.knowledgePoints.length > 0" class="knowledge-section">
                       <text class="section-label">相关知识点:</text>
                       <view class="knowledge-tags">
                         <text 
@@ -158,7 +158,7 @@
                           {{ point }}
                         </text>
                       </view>
-                    </view>
+                    </view> -->
                   </view>
                 </view>
                 
@@ -855,7 +855,7 @@ onLoad(async (options) => {
 .knowledge-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 10rpx;
+  gap: 25rpx;
 }
 
 .knowledge-tag {
