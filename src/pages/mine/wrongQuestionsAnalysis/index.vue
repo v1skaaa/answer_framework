@@ -696,7 +696,7 @@ onLoad(async (options) => {
   color: #fff;
   border: none;
   border-radius: 50rpx;
-  padding: 20rpx 40rpx;
+  padding: 10rpx 30rpx;
   font-size: 28rpx;
   display: flex;
   align-items: center;

@@ -10,7 +10,6 @@
       <view class="center-section">
         <text class="header-title">相似题目推荐</text>
       </view>
-      <view class="right-section"></view>
     </view>
 
     <view class="content-wrapper" :style="{ paddingTop: headerHeight }">
@@ -26,109 +25,171 @@
         <text class="empty-text">暂无相似题目</text>
       </view>
 
-      <!-- 题目列表 -->
-      <view v-else class="questions-list">
-        <view class="list-header">
-          <text class="total-count">为您找到 {{ similarQuestions.length }} 道相似题目</text>
-        </view>
-
-        <view 
-          class="question-card" 
-          v-for="(question, index) in similarQuestions" 
-          :key="question.questionId"
-          @click="toggleQuestionDetail(index)"
+      <!-- 题目内容容器 - 使用swiper支持滑动 -->
+      <view v-else class="questions-container">
+        <swiper 
+          class="questions-swiper"
+          :current="currentIndex"
+          @change="onSwiperChange"
+          :duration="300"
+          :easing-function="easeOutCubic"
         >
-          <!-- 题目头部信息 -->
-          <view class="card-header">
-            <view class="question-meta">
-              <view class="question-type">
-                <text class="type-tag" :class="getQuestionTypeClass(question.questionType)">
-                  {{ getQuestionTypeName(question.questionType) }}
-                </text>
-                <text class="score-text">{{ question.score ? question.score + '分' : '暂无分数' }}</text>
-              </view>
-              <view class="similarity-info">
-                <text class="similarity-label">相似度</text>
-                <view class="similarity-bar">
-                  <view class="similarity-fill" :style="{ width: (question.similarity * 100) + '%' }"></view>
-                </view>
-                <text class="similarity-percent">{{ Math.round(question.similarity * 100) }}%</text>
-              </view>
-            </view>
-            <view class="expand-icon" :class="{ 'expanded': expandedQuestions.has(index) }">
-              <uni-icons type="down" size="20" color="#999"></uni-icons>
-            </view>
-          </view>
+          <swiper-item 
+            v-for="(question, qIndex) in similarQuestions" 
+            :key="qIndex"
+            class="swiper-item"
+          >
+            <scroll-view 
+              class="question-scroll"
+              scroll-y="true"
+              :enhanced="true"
+              :show-scrollbar="false"
+            >
+              <view class="question-page">
+                <!-- 题目信息卡片 -->
+                <view class="question-card">
+                  <!-- 题目头部信息 -->
+                  <view class="card-header">
+                    <view class="question-meta">
+                      <view class="question-type">
+                        <view>
+                            <text class="type-tag" :class="getQuestionTypeClass(question.questionType)">
+                            {{ getQuestionTypeName(question.questionType) }}
+                            {{ question.choiceType === 2 ? '(多选)' : '' }}
+                            </text>
+                            <text class="score-text">{{ question.score ? question.score + '分' : '暂无分数' }}</text>
+                        </view>
+                        <view class="right-section">
+                            <view class="question-counter" v-if="!loading && similarQuestions.length > 0">
+                            <text>{{ currentIndex + 1 }}/{{ similarQuestions.length }}</text>
+                            </view>
+                        </view>
+                      </view>
+                      <!-- <view class="similarity-info">
+                        <text class="similarity-label">相似度</text>
+                        <view class="similarity-bar">
+                          <view class="similarity-fill" :style="{ width: (question.similarity * 100) + '%' }"></view>
+                        </view>
+                        <text class="similarity-percent">{{ Math.round(question.similarity * 100) }}%</text>
+                      </view> -->
+                    </view>
+                  </view>
 
-          <!-- 题目标题 -->
-          <view class="question-title">
-            <template v-for="(segment, segIndex) in question.titleSegments" :key="segIndex">
-              <text v-if="segment.type === 'text'" v-html="segment.content"></text>
-              <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
-              <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="title-image" @click.stop="previewImage(segment.url)" />
-            </template>
-          </view>
-
-          <!-- 展开的详细内容 -->
-          <view v-if="expandedQuestions.has(index)" class="question-detail">
-            <!-- 选择题选项 -->
-            <view v-if="question.questionType === 'choice' && hasOptions(question)" class="options-section">
-              <text class="section-label">选项:</text>
-              <view class="options-list">
-                <view 
-                  class="option-item"
-                  v-for="option in getQuestionOptions(question)"
-                  :key="option.label"
-                  :class="{ 'correct-option': isCorrectOption(option.label, question.answer) }"
-                >
-                  <text class="option-label">{{ option.label }}</text>
-                  <view class="option-content">
-                    <template v-for="(segment, segIndex) in option.segments" :key="segIndex">
+                  <!-- 题目标题 -->
+                  <view class="question-title">
+                    <template v-for="(segment, segIndex) in question.titleSegments" :key="segIndex">
                       <text v-if="segment.type === 'text'" v-html="segment.content"></text>
                       <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
-                      <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-image" @click.stop="previewImage(segment.url)" />
+                      <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="title-image" @click="previewImage(segment.url)" />
                     </template>
                   </view>
+
+                  <!-- 选择题选项 -->
+                  <view v-if="question.questionType === 'choice' && hasOptions(question)" class="options-section">
+                    <view class="options-list">
+                      <view 
+                        class="option-item"
+                        v-for="option in getQuestionOptions(question)"
+                        :key="option.label"
+                      >
+                        <view class="option-label" :class="{ 'multi-choice': question.choiceType === 2 }">
+                          {{ option.label }}
+                        </view>
+                        <view class="option-content">
+                          <template v-for="(segment, segIndex) in option.segments" :key="segIndex">
+                            <text v-if="segment.type === 'text'" v-html="segment.content"></text>
+                            <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
+                            <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-image" @click="previewImage(segment.url)" />
+                          </template>
+                        </view>
+                      </view>
+                    </view>
+                  </view>
+
+                  <!-- 查看答案按钮 -->
+                  <view class="answer-button-container">
+                    <button 
+                      class="answer-button" 
+                      :class="{ 'answered': showAnswers[qIndex] }"
+                      @click="toggleAnswer(qIndex)"
+                    >
+                      {{ showAnswers[qIndex] ? '隐藏答案' : '查看正确答案' }}
+                    </button>
+                  </view>
+
+                  <!-- 答案详情 -->
+                  <view v-if="showAnswers[qIndex]" class="answer-detail">
+                    <!-- 答案 -->
+                    <view class="answer-section">
+                      <text class="section-label">正确答案:</text>
+                      <view class="answer-content">
+                        <view class="answer-text" :class="getAnswerClass(question.questionType)">
+                          <template v-if="question.questionType === 'choice'">
+                            {{ question.answer }}
+                          </template>
+                          <template v-else>
+                            <MathJax :formula="question.answer" :displayMode="question.displayMode" />
+                          </template>
+                        </view>
+                      </view>
+                    </view>
+
+                    <!-- 解析 -->
+                    <view v-if="question.analysis" class="analysis-section">
+                      <text class="section-label">解析:</text>
+                      <view class="analysis-content">
+                        <template v-for="(segment, segIndex) in question.analysisSegments" :key="segIndex">
+                          <text v-if="segment.type === 'text'" v-html="segment.content"></text>
+                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
+                          <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-image" @click="previewImage(segment.url)" />
+                        </template>
+                      </view>
+                    </view>
+
+                    <!-- 知识点 -->
+                    <view v-if="question.knowledgePoints && question.knowledgePoints.length > 0" class="knowledge-section">
+                      <text class="section-label">相关知识点:</text>
+                      <view class="knowledge-tags">
+                        <text 
+                          class="knowledge-tag" 
+                          v-for="(point, kIndex) in question.knowledgePoints" 
+                          :key="kIndex"
+                        >
+                          {{ point }}
+                        </text>
+                      </view>
+                    </view>
+                  </view>
                 </view>
+                
+                <!-- 底部安全区域，避免被导航按钮遮挡 -->
+                <view class="bottom-safe-area"></view>
               </view>
-            </view>
+            </scroll-view>
+          </swiper-item>
+        </swiper>
 
-            <!-- 答案 -->
-            <view class="answer-section">
-              <text class="section-label">答案:</text>
-              <text class="answer-text" :class="getAnswerClass(question.questionType)">
-                <!-- {{ question.answer }} -->
-                  <MathJax :formula="question.answer" :displayMode="question.displayMode" />
-            </text>
-            </view>
-
-            <!-- 解析 -->
-            <view v-if="question.analysis" class="analysis-section">
-              <text class="section-label">解析:</text>
-              <view class="analysis-content">
-                <template v-for="(segment, segIndex) in question.analysisSegments" :key="segIndex">
-                  <text v-if="segment.type === 'text'" v-html="segment.content"></text>
-                  <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
-                  <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-image" @click.stop="previewImage(segment.url)" />
-                </template>
-              </view>
-            </view>
-
-            <!-- 知识点 -->
-            <view v-if="question.knowledgePoints && question.knowledgePoints.length > 0" class="knowledge-section">
-              <text class="section-label">相关知识点:</text>
-              <view class="knowledge-tags">
-                <text 
-                  class="knowledge-tag" 
-                  v-for="(point, kIndex) in question.knowledgePoints" 
-                  :key="kIndex"
-                >
-                  {{ point }}
-                </text>
-              </view>
-            </view>
+        <!-- 导航按钮 -->
+        <view class="navigation-buttons" v-if="similarQuestions.length > 1">
+          <view class="dual-button-container">
+            <button class="nav-button prev-button" @click="handlePrevQuestion" :disabled="currentIndex === 0">
+              上一题
+            </button>
+            <button class="nav-button next-button" @click="handleNextQuestion" :disabled="currentIndex === similarQuestions.length - 1">
+              下一题
+            </button>
           </view>
         </view>
+
+        <!-- 滑动提示指示器 -->
+        <!-- <view class="swipe-indicator" v-if="similarQuestions.length > 1">
+          <view 
+            class="indicator-dot" 
+            v-for="(item, index) in similarQuestions" 
+            :key="index"
+            :class="{ 'active': index === currentIndex }"
+          ></view>
+        </view> -->
       </view>
     </view>
   </view>
@@ -144,7 +205,8 @@ import MathJax from '@/components/MathJax.vue';
 
 const loading = ref(true);
 const similarQuestions = ref([]);
-const expandedQuestions = ref(new Set());
+const showAnswers = ref([]);
+const currentIndex = ref(0);
 const qaId = ref('');
 
 // 头部高度相关
@@ -170,24 +232,39 @@ menuButtonHeight.value = h5HeaderHeight;
 const headerHeight = computed(() => {
   // #ifdef MP-WEIXIN
   return menuButtonTop.value + menuButtonHeight.value + 'px';
-  // #endif
-  // #ifdef H5
-  return (statusBarHeight.value + h5HeaderHeight) + 'px';
-  // #endif
-  return '64px';
 });
 
 const goBack = () => {
   uni.navigateBack();
 };
 
-const toggleQuestionDetail = (index) => {
-  if (expandedQuestions.value.has(index)) {
-    expandedQuestions.value.delete(index);
-  } else {
-    expandedQuestions.value.add(index);
+// Swiper滑动事件处理
+const onSwiperChange = (e) => {
+  const { current } = e.detail;
+  currentIndex.value = current;
+};
+
+// 切换答案显示状态
+const toggleAnswer = (index) => {
+  showAnswers.value[index] = !showAnswers.value[index];
+};
+
+// 导航按钮处理函数
+const handlePrevQuestion = () => {
+  if (currentIndex.value > 0) {
+    currentIndex.value--;
   }
-  expandedQuestions.value = new Set(expandedQuestions.value);
+};
+
+const handleNextQuestion = () => {
+  if (currentIndex.value < similarQuestions.value.length - 1) {
+    currentIndex.value++;
+  }
+};
+
+// 切换到指定题目
+const switchToQuestion = (index) => {
+  currentIndex.value = index;
 };
 
 const getQuestionTypeName = (type) => {
@@ -333,6 +410,8 @@ const loadSimilarQuestions = async () => {
       }
       
       similarQuestions.value = processedQuestions;
+      // 初始化答案显示状态数组
+      showAnswers.value = new Array(processedQuestions.length).fill(false);
     } else {
       uni.showToast({
         title: res.msg || '获取相似题目失败',
@@ -404,7 +483,15 @@ onLoad(async (options) => {
   display: flex;
   align-items: center;
   height: 100%;
-  width: 60rpx;
+  min-width: 60rpx;
+}
+
+.question-counter {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 8rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 24rpx;
+  color: #333;
 }
 
 .back-button {
@@ -417,7 +504,6 @@ onLoad(async (options) => {
 }
 
 .content-wrapper {
-  padding: 0 20rpx 40rpx;
   min-height: 100vh;
   box-sizing: border-box;
 }
@@ -466,34 +552,41 @@ onLoad(async (options) => {
   color: #999;
 }
 
-.questions-list {
-  padding-top: 20rpx;
+.questions-container {
+  height: calc(100vh - var(--header-height, 100rpx));
+  position: relative;
 }
 
-.list-header {
-  margin-bottom: 30rpx;
-  text-align: center;
+.questions-swiper {
+  height: 100%;
+  width: 100%;
 }
 
-.total-count {
-  font-size: 28rpx;
-  color: #666;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 10rpx 20rpx;
-  border-radius: 20rpx;
+.swiper-item {
+  height: 100%;
+  width: 100%;
+}
+
+.question-scroll {
+  height: 100%;
+  width: 100%;
+}
+
+.question-page {
+  padding: 20rpx;
+  min-height: 100%;
+  box-sizing: border-box;
 }
 
 .question-card {
-  background: #fff;
-  margin-bottom: 20rpx;
   border-radius: 16rpx;
-  padding: 30rpx;
-  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
 }
 
-.question-card:active {
-  transform: scale(0.98);
+.bottom-safe-area {
+  height: 200rpx;
+  width: 100%;
 }
 
 .card-header {
@@ -510,6 +603,7 @@ onLoad(async (options) => {
 .question-type {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 20rpx;
   margin-bottom: 15rpx;
 }
@@ -540,6 +634,7 @@ onLoad(async (options) => {
   background: #f5f5f5;
   padding: 8rpx 16rpx;
   border-radius: 20rpx;
+  margin-left: 8px;
 }
 
 .similarity-info {
@@ -575,12 +670,31 @@ onLoad(async (options) => {
   font-weight: 500;
 }
 
-.expand-icon {
-  transition: transform 0.3s ease;
+.answer-button-container {
+  margin: 30rpx 0;
+  text-align: center;
 }
 
-.expand-icon.expanded {
-  transform: rotate(180deg);
+.answer-button {
+  background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
+  color: #fff;
+  border: none;
+  padding: 10rpx 20rpx;
+  border-radius: 30rpx;
+  font-size: 30rpx;
+  font-weight: 500;
+  width: 80%;
+  transition: all 0.3s ease;
+  box-shadow: 0 4rpx 15rpx rgba(0, 122, 255, 0.3);
+}
+
+.answer-button.answered {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ffa500 100%);
+  box-shadow: 0 4rpx 15rpx rgba(255, 107, 107, 0.3);
+}
+
+.answer-button:active {
+  transform: scale(0.98);
 }
 
 .question-title {
@@ -606,9 +720,22 @@ onLoad(async (options) => {
   border-radius: 8rpx;
 }
 
-.question-detail {
+.answer-detail {
   border-top: 1rpx solid #f0f0f0;
   padding-top: 20rpx;
+  margin-top: 20rpx;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .section-label {
@@ -634,13 +761,8 @@ onLoad(async (options) => {
   align-items: flex-start;
   padding: 15rpx;
   border-radius: 8rpx;
-  background: #f9f9f9;
+//   background: #f9f9f9;
   transition: all 0.3s ease;
-}
-
-.option-item.correct-option {
-  background: linear-gradient(135deg, #e8f5e8 0%, #f0fff0 100%);
-  border: 1rpx solid #4caf50;
 }
 
 .option-label {
@@ -657,11 +779,9 @@ onLoad(async (options) => {
   flex-shrink: 0;
 }
 
-.correct-option .option-label {
-  background: #4caf50;
-  border-color: #4caf50;
-  color: #fff;
-}
+// .option-label.multi-choice {
+//   border-radius: 8rpx;
+// }
 
 .option-content {
   flex: 1;
@@ -679,24 +799,32 @@ onLoad(async (options) => {
   margin-bottom: 25rpx;
 }
 
+.answer-content {
+  margin-top: 10rpx;
+}
+
 .answer-text {
   font-size: 30rpx;
   font-weight: 500;
-}
-
-.choice-answer {
   color: #4caf50;
-  background: #e8f5e8;
-  padding: 10rpx 20rpx;
-  border-radius: 20rpx;
+  background: linear-gradient(135deg, #e8f5e8 0%, #f0fff0 100%);
+  padding: 15rpx 20rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #4caf50;
+  display: block;
+  line-height: 1.6;
+  word-break: break-word;
 }
 
-.text-answer {
-  color: #333;
-  background: #f5f5f5;
-  padding: 15rpx 20rpx;
-  border-radius: 8rpx;
-  word-break: break-word;
+.answer-text.choice-answer {
+  display: inline-block;
+  min-width: 60rpx;
+  text-align: center;
+}
+
+.answer-text.text-answer {
+  display: block;
+  text-align: left;
 }
 
 .analysis-section {
@@ -737,5 +865,86 @@ onLoad(async (options) => {
   display: inline-block;
   vertical-align: middle;
   font-size: 28rpx;
+}
+
+/* 导航按钮样式 */
+.navigation-buttons {
+  position: fixed;
+  bottom: 40rpx;
+  left: 0;
+  right: 0;
+  padding: 0 40rpx;
+  z-index: 99;
+}
+
+.dual-button-container {
+  display: flex;
+  justify-content: space-between;
+  gap: 40rpx;
+}
+
+.nav-button {
+  flex: 1;
+  height: 88rpx;
+  border-radius: 44rpx;
+  font-size: 32rpx;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.prev-button {
+  background-color: #007aff;
+  color: #fff;
+}
+
+.prev-button:disabled {
+  background-color: #e0e0e0;
+  color: #999;
+}
+
+.next-button {
+  background-color: #007aff;
+  color: #fff;
+}
+
+.next-button:disabled {
+  background-color: #ccc;
+  color: #999;
+}
+
+.nav-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+/* 滑动指示器样式 */
+.swipe-indicator {
+  position: fixed;
+  bottom: 160rpx;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12rpx;
+  padding: 12rpx 24rpx;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 30rpx;
+  z-index: 98;
+}
+
+.indicator-dot {
+  width: 12rpx;
+  height: 12rpx;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.4);
+  transition: all 0.3s ease;
+}
+
+.indicator-dot.active {
+  background: #fff;
+  transform: scale(1.2);
 }
 </style>
