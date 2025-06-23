@@ -85,4 +85,17 @@ export const getWrongQuestionCount = (studentId, startTime, endTime) => {
   });
 };
 
+// 获取错题分析详情
+export const getWrongQuestionDetails = (studentId, startTime, endTime) => {
+  return apiService({
+    url: '/api/tenant/exam/wrongQuestion/list',
+    method: 'get',
+    params: {
+      studentId,
+      startTime,
+      endTime
+    }
+  });
+};
+
 // You can add other exam related API functions here later 

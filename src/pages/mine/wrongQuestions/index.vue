@@ -53,7 +53,7 @@
       <view class="wrong-questions-list" v-if="dailyData.length > 0">
         <view 
           class="wrong-question-item" 
-          v-for="(item, index) in dailyData" 
+          v-for="(item, index) in dailyData.slice().reverse()" 
           :key="index"
           @click="handleItemClick(item)"
         >
@@ -255,7 +255,9 @@ const handleItemClick = (item) => {
   const startTime = getStartTimeForDate(item.date);
   const endTime = getEndTimeForDate(item.date);
   const studentId = userStore.id;
-  
+  uni.navigateTo({
+  url: `/pages/mine/wrongQuestionsAnalysis/index?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}&studentId=${studentId}`
+});
   console.log('选中的时间范围:', {
     startTime,
     endTime,

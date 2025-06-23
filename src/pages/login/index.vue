@@ -38,6 +38,7 @@
         </view>
       </view>
       
+      <!--
       <view class="form-item">
         <text class="label">学校</text>
         <picker :range="tenantOptions" range-key="label" @change="onTenantChange">
@@ -49,6 +50,7 @@
           </view>
         </picker>
       </view>
+      -->
       
       <view class="remember-wrapper">
         <checkbox-group @change="rememberChange">
@@ -93,18 +95,17 @@ const state = reactive({
 });
 
 const tenantOptions = [ // 学校选项配置
-  { label: '梧州一中', value: 1 },
-  { label: '梧州二中', value: 2 }
+  { label: '梧州一中', value: 1 }
 ];
 
 const rememberChange = (e) => {
   state.rememberMe = e.detail.value.length > 0;
 };
 
-const onTenantChange = (e) => {
-  state.tenantIndex = e.detail.value;
-  state.tenantId = tenantOptions[state.tenantIndex].value;
-};
+// const onTenantChange = (e) => {
+//   state.tenantIndex = e.detail.value;
+//   state.tenantId = tenantOptions[state.tenantIndex].value;
+// };
 
 const handleLogin = async () => {
   try {
@@ -116,22 +117,24 @@ const handleLogin = async () => {
       })
       return
     }
-    if (!state.tenantId) {
-      uni.showToast({
-        title: '请选择学校',
-        icon: 'none'
-      });
-      return;
-    }
+    // if (!state.tenantId) {
+    //   uni.showToast({
+    //     title: '请选择学校',
+    //     icon: 'none'
+    //   });
+    //   return;
+    // }
+    // 默认tenantId为1
+    const tenantId = 1;
     console.log('准备调用登录接口，参数:', {
       username: state.username,
       password: state.password,
-      tenantId: state.tenantId
+      tenantId: tenantId
     })
     const res = await userStore.loginAction({
       username: state.username,
       password: state.password,
-      tenantId: state.tenantId
+      tenantId: tenantId
     })
     console.log('登录接口返回:', res)
     if (!res) {
@@ -143,7 +146,7 @@ const handleLogin = async () => {
       return
     }
     // 登录成功后保存tenantId
-    uni.setStorageSync('X-Tenant-ID', state.tenantId);
+    uni.setStorageSync('X-Tenant-ID', tenantId);
     console.log('登录成功，准备跳转')
     uni.switchTab({
       url: '/pages/index/index',

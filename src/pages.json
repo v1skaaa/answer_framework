@@ -110,6 +110,13 @@
 				"navigationBarTitleText": "错题集",
 				"navigationStyle": "custom"
 			}
+		},
+		{
+			"path": "pages/mine/wrongQuestionsAnalysis/index",
+			"style": {
+				"navigationBarTitleText": "错题分析",
+				"navigationStyle": "custom"
+			}
 		}
 	],
 	"tabBar": {
