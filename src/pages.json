@@ -117,6 +117,13 @@
 				"navigationBarTitleText": "错题分析",
 				"navigationStyle": "custom"
 			}
+		},
+		{
+			"path": "pages/mine/wrongquetionrecommand/index",
+			"style": {
+				"navigationBarTitleText": "相似题目推荐",
+				"navigationStyle": "custom"
+			}
 		}
 	],
 	"tabBar": {

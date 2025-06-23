@@ -121,6 +121,14 @@
                 <text v-if="!currentQuestion.analysisSegments || currentQuestion.analysisSegments.length === 0">暂无解析</text>
               </view>
             </view>
+
+            <!-- 相似题目按钮 -->
+            <view class="similar-questions-section">
+              <button class="similar-questions-btn" @click="goToSimilarQuestions">
+                <uni-icons type="lightbulb" size="20" color="#007aff"></uni-icons>
+                <text class="similar-btn-text">查看相似题目</text>
+              </button>
+            </view>
           </view>
         </scroll-view>
       </transition>
@@ -243,6 +251,20 @@ const handleTouchEnd = () => {
 
 const goBack = () => {
   uni.navigateBack();
+};
+
+const goToSimilarQuestions = () => {
+  console.log("currentQuestion.value", currentQuestion.value);
+  if (!currentQuestion.value.qaId) {
+    uni.showToast({
+      title: '题目ID不存在',
+      icon: 'none'
+    });
+    return;
+  }
+  uni.navigateTo({
+    url: `/pages/mine/wrongquetionrecommand/index?qaId=${currentQuestion.value.qaId}`
+  });
 };
 
 const toggleQuestionCard = () => {
@@ -390,6 +412,7 @@ onLoad(async (options) => {
         analysisSegments,
         teacherComment: detailRecord.teacherComment,
         correctAnswer: question.correctAnswer,
+        qaId: question.qaId || question.qbId || question.qcId || null,
       };
       if (type === 1) choice.push(q);
       if (type === 2) blank.push(q);
@@ -660,6 +683,33 @@ onLoad(async (options) => {
   font-size: 28rpx;
   color: #555;
   line-height: 1.6;
+}
+.similar-questions-section {
+  margin-top: 30rpx;
+  padding-top: 20rpx;
+  border-top: 1rpx solid #eee;
+  display: flex;
+  justify-content: center;
+}
+.similar-questions-btn {
+  background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
+  color: #fff;
+  border: none;
+  border-radius: 50rpx;
+  padding: 20rpx 40rpx;
+  font-size: 28rpx;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  box-shadow: 0 4rpx 12rpx rgba(0, 122, 255, 0.3);
+  transition: all 0.3s ease;
+}
+.similar-questions-btn:active {
+  transform: scale(0.95);
+  box-shadow: 0 2rpx 8rpx rgba(0, 122, 255, 0.2);
+}
+.similar-btn-text {
+  font-weight: 500;
 }
 .answer-status {
   margin-top: 20rpx;
