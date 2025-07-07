@@ -26,14 +26,19 @@
         <text class="label">密码</text>
         <view class="input-wrapper" :class="{'active': state.passwordFocus}">
           <input 
-            type="password" 
+            :type="state.showPassword ? 'text' : 'password'" 
             v-model="state.password" 
             placeholder="请输入密码"
             @focus="state.passwordFocus = true" 
             @blur="state.passwordFocus = false" 
           />
           <view class="icon-wrapper">
-            <uni-icons type="locked" size="22" color="#a6c0fe"></uni-icons>
+            <uni-icons
+              type="locked"
+              size="22"
+              color="#a6c0fe"
+              style="cursor: pointer;"
+            />
           </view>
         </view>
       </view>
@@ -91,7 +96,8 @@ const state = reactive({
   usernameFocus: false,
   passwordFocus: false,
   tenantIndex: -1,// 选中的学校索引
-  tenantId: null// 学校ID
+  tenantId: null,// 学校ID
+  showPassword: false // 新增，用于切换密码明文/密文
 });
 
 const tenantOptions = [ // 学校选项配置
@@ -274,10 +280,11 @@ checkRememberedAccount();
         .icon-wrapper {
           display: flex;
           align-items: center;
-          justify-content: center;
-          width: 50rpx;
+          justify-content: flex-end;
+          width: auto;
           height: 50rpx;
-          margin-left: 100rpx;
+          margin-left: 0;
+          gap: 4rpx;
         }
       }
     }

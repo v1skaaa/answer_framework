@@ -52,13 +52,21 @@ const configureMathJax = () => {
             },
             loader: {
                 load: ['[tex]/ams', '[tex]/boldsymbol', '[tex]/color', '[tex]/physics', '[tex]/mhchem']
+            },
+            chtml: {
+                displayAlign: 'left',
+                displayIndent: '0em',
+                scale: 1,
+                matchFontHeight: true,
+                mtextInheritFont: true,
             }
         };
         
         // 动态加载 MathJax
         const script = document.createElement('script');
         // script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js';
-        script.src = '/static/mathjax.js';
+        // script.src = '/static/mathjax.js';
+        script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js';
         script.async = true;
         script.id = 'MathJax-script';
         document.head.appendChild(script);

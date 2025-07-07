@@ -34,7 +34,7 @@
         </view>
       </view>
       <view class="card-right">
-        <image src="/static/boshimao.png" class="illustration"></image>
+        <image src="/static/boshimao-removebg-preview.png" class="illustration"></image>
       </view>
     </view>
     <view class="section-title"><view class="bar"></view>最近做题</view>
@@ -59,6 +59,20 @@ import { ref, onMounted } from 'vue';
 
 // 高考倒计时状态
 const gaokaoCountdown = ref('计算中...');
+
+// 当前时间
+const currentTime = ref('');
+
+const updateCurrentTime = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = (now.getMonth() + 1).toString().padStart(2, '0');
+  const day = now.getDate().toString().padStart(2, '0');
+  const hours = now.getHours().toString().padStart(2, '0');
+  const minutes = now.getMinutes().toString().padStart(2, '0');
+  const seconds = now.getSeconds().toString().padStart(2, '0');
+  currentTime.value = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+};
 
 const calculateGaokaoCountdown = () => {
   const now = new Date();
@@ -179,6 +193,10 @@ onMounted(() => {
   // loadRecentList();
 
   calculateGaokaoCountdown();
+  updateCurrentTime();
+  
+  // 每秒更新一次时间
+  setInterval(updateCurrentTime, 1000);
 });
 </script>
 
@@ -236,7 +254,7 @@ onMounted(() => {
   justify-content: space-between;
   border-radius: 24rpx;
   overflow: hidden;
-  box-shadow: 0 2rpx 8rpx rgba(90,156,255,0.10);
+  box-shadow: 0 8rpx 32rpx rgba(0, 0, 0, 0.1);
 }
 .middle-item {
   flex: 1;
@@ -248,22 +266,41 @@ onMounted(() => {
   color: #fff;
   font-weight: bold;
   font-size: 28rpx;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
+    pointer-events: none;
+  }
 }
 .middle-item.exercise {
-  background: linear-gradient(135deg, #70c1ff 0%, #a6d4f8 100%); /* Adjusted blue gradient */
+  background: linear-gradient(135deg, #70c1ff 0%, #a6d4f8 100%);
 }
 .middle-item.test {
-  background: linear-gradient(135deg, #ffaa7f 0%, #ff9ac2 100%); /* Adjusted pink/orange gradient */
+  background: linear-gradient(135deg, #ffaa7f 0%, #ff9ac2 100%);
 }
 .middle-title {
   font-size: 28rpx;
   color: #fff;
   font-weight: bold;
   margin-bottom: 8rpx;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.2);
 }
 .middle-desc {
   font-size: 22rpx;
-  color: #f3f3f3;
+  color: rgba(255, 255, 255, 0.9);
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1rpx 2rpx rgba(0, 0, 0, 0.1);
 }
 .section-title {
   font-size: 28rpx;

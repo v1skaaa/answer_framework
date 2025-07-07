@@ -124,36 +124,50 @@
 				"navigationBarTitleText": "相似题目推荐",
 				"navigationStyle": "custom"
 			}
+		},
+		{
+			"path": "pages/mine/situation/index",
+			"style": {
+				"navigationBarTitleText": "学情图谱",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/mine/feedBack/index",
+			"style": {
+				"navigationBarTitleText": "意见反馈",
+				"navigationStyle": "custom"
+			}
 		}
 	],
 	"tabBar": {
 		"color": "#7A7E83",
-		"selectedColor": "#a6c0fe",
+		"selectedColor": "#89d5fd",
 		"borderStyle": "black",
 		"backgroundColor": "#ffffff",
 		"list": [
 			{
 				"pagePath": "pages/index/index",
-				"iconPath": "static/images/tab-basic.png",
-				"selectedIconPath": "static/images/tab-basic-active.png",
+				"iconPath": "static/images/shouye-grey.png",
+				"selectedIconPath": "static/images/shouye-active.png",
 				"text": "首页"
 			},
 			{
 				"pagePath": "pages/exercise/index",
-				"iconPath": "static/images/tab-enhanced.png",
-				"selectedIconPath": "static/images/tab-enhanced-active.png",
+				"iconPath": "static/images/xiti-grey.png",
+				"selectedIconPath": "static/images/xiti-active.png",
 				"text": "习题"
 			},
 			{
 				"pagePath": "pages/test/index",
-				"iconPath": "static/images/tab-mock.png",
-				"selectedIconPath": "static/images/tab-mock-active.png",
+				"iconPath": "static/images/shijuan-grey.png",
+				"selectedIconPath": "static/images/shijuan-active.png",
 				"text": "试卷"
 			},
 			{
 				"pagePath": "pages/mine/index",
-				"iconPath": "static/images/tab-mine.png",
-				"selectedIconPath": "static/images/tab-mine-active.png",
+				"iconPath": "static/images/geren-grey.png",
+				"selectedIconPath": "static/images/geren-active.png",
 				"text": "个人中心"
 			}
 		]

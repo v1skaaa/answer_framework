@@ -32,7 +32,6 @@
           :current="currentIndex"
           @change="onSwiperChange"
           :duration="300"
-          :easing-function="easeOutCubic"
         >
           <swiper-item 
             v-for="(question, qIndex) in similarQuestions" 

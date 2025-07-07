@@ -98,4 +98,35 @@ export const getWrongQuestionDetails = (studentId, startTime, endTime) => {
   });
 };
 
+// 获取学生错题知识点分析
+export const getWrongQuestionKnowledgePoints = (studentId, startTime, endTime) => {
+  return apiService({
+    url: '/api/tenant/exam/analysis/wrong-question-knowledge-points',
+    method: 'get',
+    params: {
+      studentId,
+      startTime,
+      endTime
+    }
+  });
+};
+
+// 获取用户意见反馈列表
+export const getUserFeedback = (userId) => {
+  return apiService({
+    url: '/api/tenant/exam/profile/getFeedback',
+    method: 'get',
+    params: { userId }
+  });
+};
+
+// 提交用户意见反馈
+export const submitUserFeedback = (userId, content) => {
+  return apiService({
+    url: '/api/tenant/exam/profile/submitFeedback',
+    method: 'post',
+    data: { userId, content }
+  });
+};
+
 // You can add other exam related API functions here later 

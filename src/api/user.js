@@ -33,12 +33,12 @@ export function refreshToken(data) {
 }
 
 // 获取用户详细信息
-export function getUserInfoById(userId) {
-  return authService({
-    url: `/api/tenant/private/user/getUserInfoById`,
+export function getUserInfoById(studentId) {
+  return apiService({
+    url: `/api/tenant/exam/profile/student`,
     method: 'get',
     params: {
-      userId
+      studentId
     }
   });
 } 

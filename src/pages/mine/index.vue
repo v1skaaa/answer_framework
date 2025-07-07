@@ -1,51 +1,48 @@
 <template>
   <view class="container">
-    <view class="header" @click="goToPersonalDetail">
-      <image class="avatar" :src="'/static/images/u-are-the-best.jpg'" mode="aspectFill"></image>
+    <view class="header">
+      <image class="avatar" :src="'/static/images/default-avatar.png'" mode="aspectFill"></image>
       <text class="username">{{ userInfo.nickname || userInfo.username }}</text>
     </view>
     <view class="stats-bar">
       <view class="stats-item">
         <text class="stats-label">练习记录</text>
-        <text class="stats-value">{{ userStats.totalQuestions }}</text>
       </view>
       <text class="stats-divider">|</text>
       <view class="stats-item" @click="navToWrongQuestions">
         <text class="stats-label">错题集</text>
-        <text class="stats-value">{{ userStats.wrongQuestions }}</text>
       </view>
       <text class="stats-divider">|</text>
       <view class="stats-item">
         <text class="stats-label">收藏本</text>
-        <text class="stats-value">{{ userStats.favoriteQuestions }}</text>
       </view>
     </view>
     <view class="menu-group">
       <view class="menu-group-title">通用</view>
       <view class="menu-list">
+        <view class="menu-item" @click="goToPersonalDetail">
+          <view class="menu-icon"><uni-icons type="person" size="22" color="#a6c0fe"></uni-icons></view>
+          <text class="menu-text">个人信息</text>
+          <text class="menu-arrow">></text>
+        </view>
+        <view class="menu-item" @click="navTo('/pages/mine/feedBack/index')">
+          <view class="menu-icon"><span class="iconfont icon-yijianfankui01" style="font-size:22px;color:#32ccd7;"></span></view>
+          <text class="menu-text">意见反馈</text>
+          <text class="menu-arrow">></text>
+        </view>
         <view class="menu-item" @click="navTo('/pages/mine/messages')">
-          <view class="menu-icon"><uni-icons type="chatboxes" size="22" color="#a6c0fe"></uni-icons></view>
-          <text class="menu-text">消息中心</text>
-          <text class="menu-arrow">></text>
-        </view>
-        <view class="menu-item" @click="navTo('/pages/mine/settings')">
-          <view class="menu-icon"><uni-icons type="gear" size="22" color="#a6c0fe"></uni-icons></view>
-          <text class="menu-text">设置</text>
-          <text class="menu-arrow">></text>
-        </view>
-        <view class="menu-item" @click="navTo('/pages/mine/customerService')">
-          <view class="menu-icon"><uni-icons type="headphones" size="22" color="#4caf50"></uni-icons></view>
-          <text class="menu-text">客服</text>
+          <view class="menu-icon"><uni-icons type="chatboxes" size="22" color="#28b68a"></uni-icons></view>
+          <text class="menu-text">消息通知</text>
           <text class="menu-arrow">></text>
         </view>
       </view>
     </view>
     <view class="menu-group">
-      <view class="menu-group-title">练习</view>
+      <view class="menu-group-title">学况</view>
       <view class="menu-list">
-        <view class="menu-item" @click="navTo('/pages/mine/ranking')">
-          <view class="menu-icon"><uni-icons type="medal" size="22" color="#ffaa7f"></uni-icons></view>
-          <text class="menu-text">排行榜</text>
+        <view class="menu-item" @click="navTo('/pages/mine/situation/index')">
+          <view class="menu-icon"><span class="iconfont icon-xueqingfenxi" style="font-size:22px;color:#ffaa7f;"></span></view>
+          <text class="menu-text">学情分析</text>
           <text class="menu-arrow">></text>
         </view>
       </view>
@@ -54,7 +51,7 @@
       <view class="menu-group-title">考试</view>
       <view class="menu-list">
         <view class="menu-item" @click="navTo('/pages/mine/examRecord/index')">
-          <view class="menu-icon"><uni-icons type="list" size="22" color="#a6c0fe"></uni-icons></view>
+          <view class="menu-icon"><span class="iconfont icon-kaoshi" style="font-size:22px;color:#a6c0fe;"></span></view>
           <text class="menu-text">考试记录</text>
           <text class="menu-arrow">></text>
         </view>
@@ -70,6 +67,7 @@
 import { ref, onMounted } from 'vue';
 import { useUserDetailStore } from '@/stores/userDetail';
 import { getWrongQuestionCount } from '@/api/exam';
+import '@/../font_4960231_adxpawzkqii/iconfont.css';
 
 // 保留原有的用户信息和统计数据模拟，根据需要进行调整
 const userInfo = ref({
@@ -164,9 +162,9 @@ onMounted(() => {
 const userDetailStore = useUserDetailStore();
 
 const goToPersonalDetail = async () => {
-  const userId = uni.getStorageSync('id');
-  if (userId) {
-    await userDetailStore.fetchUserDetail(userId);
+  const studentId = uni.getStorageSync('id');
+  if (studentId) {
+    await userDetailStore.fetchUserDetail(studentId);
   }
   uni.navigateTo({
     url: '/pages/mine/detail/index'
@@ -175,6 +173,7 @@ const goToPersonalDetail = async () => {
 </script>
 
 <style lang="scss">
+
 .container {
   padding: 20rpx;
   background: linear-gradient(135deg, #f8f8ff 0%, #e0e7ff 100%);
@@ -215,29 +214,29 @@ const goToPersonalDetail = async () => {
   justify-content: center;
   background-color: #fff;
   border-radius: 20rpx;
-  padding: 20rpx 0;
+  padding: 0;
   margin-bottom: 30rpx;
   box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+  height: 140rpx;
+  align-items: center;
 }
 
 .stats-item {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   font-size: 28rpx;
   color: #333;
   padding: 0 65rpx;
+  height: 60rpx;
 }
 
 .stats-label {
   font-size: 28rpx;
   color: #333;
-  margin-bottom: 8rpx;
-}
-
-.stats-value {
-  font-size: 24rpx;
-  color: #888;
+  margin-bottom: 0;
+  line-height: 60rpx;
 }
 
 .stats-divider {
