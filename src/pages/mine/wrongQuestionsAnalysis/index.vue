@@ -170,7 +170,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { getWrongQuestionDetails } from '@/api/exam';
+import { getWrongQuestionDetails, getWrongQuestionsByKnowledgePoint } from '@/api/exam';
 import { parseMathText } from '@/stores/exam';
 import { getImageFromMinio } from '@/api/exam';
 import MathJax from '@/components/MathJax.vue';
@@ -358,13 +358,24 @@ async function processImageUrls(imageUrls) {
 }
 
 onLoad(async (options) => {
-  const { studentId, startTime, endTime } = options;
+  const { studentId, startTime, endTime, knowledgePointId } = options;
   if (!studentId || !startTime || !endTime) return;
+  console.log('[错题分析] knowledgePointId:', knowledgePointId, 'startTime:', startTime, 'endTime:', endTime);
   uni.showLoading({ title: '加载中...' });
-  const res = await getWrongQuestionDetails(studentId, startTime, endTime);
+  let res;
+  if (knowledgePointId) {
+    // 调用新接口：根据知识点查询学生错题
+    res = await getWrongQuestionsByKnowledgePoint(studentId, knowledgePointId, startTime, endTime);
+    console.log('[错题分析] byKnowledgePoint接口返回:', res);
+  } else {
+    // 调用原接口
+    res = await getWrongQuestionDetails(studentId, startTime, endTime);
+    console.log('[错题分析] list接口返回:', res);
+  }
   if (res.flag === '1' && res.result) {
     const imageUrlMap = res.result.imageUrlMap || {};
     const details = res.result.wrongQuestionDetails || [];
+    console.log('[错题分析] 解析后题目数量:', details.length);
     // 分类
     const choice = [], blank = [], application = [];
     let idx = 1;
@@ -419,6 +430,7 @@ onLoad(async (options) => {
       if (type === 3) application.push(q);
     }
     questions.value = [...choice, ...blank, ...application];
+    console.log('[错题分析] 最终渲染题目数量:', questions.value.length);
   }
   uni.hideLoading();
 });

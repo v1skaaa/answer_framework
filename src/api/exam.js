@@ -129,4 +129,18 @@ export const submitUserFeedback = (userId, content) => {
   });
 };
 
+// 根据知识点查询学生错题
+export const getWrongQuestionsByKnowledgePoint = (studentId, knowledgePointId, startTime, endTime) => {
+  return apiService({
+    url: '/api/tenant/exam/wrongQuestion/byKnowledgePoint',
+    method: 'get',
+    params: {
+      studentId,
+      knowledgePointId,
+      startTime,
+      endTime
+    }
+  });
+};
+
 // You can add other exam related API functions here later 

@@ -48,6 +48,7 @@
           class="knowledge-bar-item"
           v-for="(item, idx) in pieData"
           :key="item.name"
+          @click="handleBarClick(item)"
         >
           <view class="bar-content">
             <view class="bar-title">{{ item.name }}</view>
@@ -108,7 +109,17 @@ const headerHeight = computed(() => {
 
 // 返回上一页
 const goBack = () => {
-  uni.navigateBack();
+  // 直接使用 switchTab 跳转到 mine 页面
+  uni.switchTab({
+    url: '/pages/mine/index',
+    fail: (err) => {
+      console.error('Navigation failed:', err);
+      uni.showToast({
+        title: '返回失败',
+        icon: 'none'
+      });
+    }
+  });
 };
 
 // 日期选择相关
@@ -128,6 +139,22 @@ const onEndDateChange = (e) => {
   endDate.value = e.detail.value;
 };
 const pieData = ref([]);
+
+const handleBarClick = (item) => {
+  // 获取 studentId、knowledgePointId、startDate、endDate
+  const studentId = uni.getStorageSync('id');
+  const knowledgePointId = item.knowledgePointId;
+  const start = startDate.value ? `${startDate.value} 00:00:00` : '';
+  const end = endDate.value ? `${endDate.value} 23:59:59` : '';
+  if (!studentId || !knowledgePointId || !start || !end) {
+    uni.showToast({ title: '参数缺失', icon: 'none' });
+    return;
+  }
+  // 跳转到错题分析页面，传递参数
+  uni.navigateTo({
+    url: `/pages/mine/wrongQuestionsAnalysis/index?studentId=${encodeURIComponent(studentId)}&knowledgePointId=${encodeURIComponent(knowledgePointId)}&startTime=${encodeURIComponent(start)}&endTime=${encodeURIComponent(end)}`
+  });
+};
 
 const handleSearch = async () => {
   const studentId = uni.getStorageSync('id');
@@ -156,8 +183,10 @@ const handleSearch = async () => {
     if (res.flag === '1' && Array.isArray(res.result)) {
       pieData.value = res.result.map(item => ({
         value: item.count,
-        name: item.name
+        name: item.name,
+        knowledgePointId: item.knowledgePointId
       }));
+      console.log('pieData for bar:', pieData.value); // 调试用
       updatePieChart();
     } else {
       pieData.value = [];
@@ -277,7 +306,7 @@ onLoad(() => {
       const res = await getWrongQuestionKnowledgePoints(studentId, startTime, endTime);
       uni.hideLoading();
       if (res.flag === '1' && Array.isArray(res.result)) {
-        pieData.value = res.result.map(item => ({ value: item.count, name: item.name }));
+        pieData.value = res.result.map(item => ({ value: item.count, name: item.name, knowledgePointId: item.knowledgePointId}));
         updatePieChart();
       } else {
         pieData.value = [];
@@ -457,6 +486,12 @@ const maxWrongCount = computed(() => Math.max(...pieData.value.map(i => i.value)
 .knowledge-bar-item {
   display: flex;
   align-items: center;
+  padding-bottom: 16rpx;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  &:last-child {
+    border-bottom: none;
+  }
 }
 .bar-content {
   flex: 1;
