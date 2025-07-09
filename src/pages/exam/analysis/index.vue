@@ -102,75 +102,96 @@
                              </template>
                         </template>
 
-                         <!-- 填空题和解答题的已上传图片或文本答案 -->
+                        <!-- 填空题和解答题的已上传图片或文本答案（只保留一份你的答案/教师评语，按钮和v-if包裹正确答案+解析） -->
                         <template v-else-if="examStore.currentQuestion.originalType === 2 || examStore.currentQuestion.originalType === 3">
-                             <view class="student-answer">
+                            <view class="student-answer">
                                 <text class="answer-label">你的答案:</text>
                                 <template v-if="examStore.currentQuestion.imageUrls">
-                                     <view class="image-preview-list">
+                                    <view class="image-preview-list">
                                         <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(examStore.currentQuestion.imageUrls) ? examStore.currentQuestion.imageUrls : [examStore.currentQuestion.imageUrls])" :key="index">
                                             <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(imageUrl)"></image>
-                                         </view>
-                                     </view>
+                                        </view>
+                                    </view>
                                 </template>
                                 <template v-else-if="examStore.currentQuestion.stuAnswer">
                                     <text>{{ examStore.currentQuestion.stuAnswer }}</text>
                                 </template>
                                 <text v-else>未作答</text>
-                             </view>
-
-                             <!-- 正确答案（仅解答题）-->
-                             <view class="correct-solution-section" v-if="examStore.currentQuestion.originalType === 2 || examStore.currentQuestion.originalType === 3">
-                                 <text class="solution-label">正确答案:</text>
-                                 <view class="solution-content-text">
-                                     <template v-if="examStore.currentQuestion.correctAnswerSegments && examStore.currentQuestion.correctAnswerSegments.length > 0">
-                                         <template v-for="(segment, index) in examStore.currentQuestion.correctAnswerSegments" :key="index">
-                                             <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image" @click="previewImage(segment.url)"></image>
-                                         </template>
-                                     </template>
-                                     <text v-else>暂无答案</text>
-                                 </view>
-                             </view>
-
-                             <!-- 教师评语 -->
-                             <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
-                                 <text class="comment-label">教师评语:</text>
-                                 <view class="comment-content-text">
-                                     <text>{{ examStore.currentQuestion.teacherComment }}</text>
-                                 </view>
-                             </view>
-                        </template>
-                    </view>
-
-                    <!-- 解析信息 -->
-                    <view class="analysis-section">
-                        <template v-if="examStore.currentQuestion.originalType === 1"> <!-- 选择题显示正确答案和判断 -->
-                            <view class="answer-status">
-                                <text>正确答案是: <text class="correct-answer-text">{{ examStore.currentQuestion.correctAnswer || '无' }}</text></text>
-                                <text>你的答案是: <text :class="{'incorrect-answer-text': examStore.currentQuestion.status === 'incorrect', 'correct-answer-text': examStore.currentQuestion.status === 'correct'}">{{ examStore.currentQuestion.stuAnswer || '未作答' }}</text></text>
-                                <text>{{ examStore.currentQuestion.status === 'correct' ? '回答正确' : (examStore.currentQuestion.status === 'incorrect' ? '回答错误' : '') }}</text>
                             </view>
-                            <!-- 教师评语 (仅选择题显示在正确答案/你的答案下面，解析上面) -->
                             <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
                                 <text class="comment-label">教师评语:</text>
                                 <view class="comment-content-text">
                                     <text>{{ examStore.currentQuestion.teacherComment }}</text>
                                 </view>
                             </view>
+                            <view class="answer-toggle-btn-container">
+                                <button class="answer-toggle-btn"
+                                  :class="{'answered': showDetailArr[examStore.currentQuestionIndex]}"
+                                  @click="toggleShowDetail(examStore.currentQuestionIndex)">
+                                  {{ showDetailArr[examStore.currentQuestionIndex] ? (examStore.currentQuestion.originalType === 1 ? '隐藏解析' : '隐藏正确答案') : (examStore.currentQuestion.originalType === 1 ? '查看解析' : '查看正确答案') }}
+                                </button>
+                            </view>
+                            <view v-if="showDetailArr[examStore.currentQuestionIndex]">
+                                <view class="correct-solution-section">
+                                    <text class="solution-label">正确答案:</text>
+                                    <view class="solution-content-text">
+                                        <template v-if="examStore.currentQuestion.correctAnswerSegments && examStore.currentQuestion.correctAnswerSegments.length > 0">
+                                            <template v-for="(segment, index) in examStore.currentQuestion.correctAnswerSegments" :key="index">
+                                                <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                                <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                                <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image" @click="previewImage(segment.url)"></image>
+                                            </template>
+                                        </template>
+                                        <text v-else>暂无答案</text>
+                                    </view>
+                                </view>
+                                <view class="analysis-content-text">
+                                    <text class="analysis-label">解析:</text>
+                                    <view class="analysis-text">
+                                        <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
+                                            <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                            <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                            <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
+                                        </template>
+                                        <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
+                                    </view>
+                                </view>
+                            </view>
                         </template>
-                        <view class="analysis-content-text">
-                             <text class="analysis-label">解析:</text>
-                             <view class="analysis-text">
-                                  <!-- Render analysis text with MathJax component -->
-                                 <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
-                                     <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                     <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                     <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
-                                 </template>
-                                 <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
-                             </view>
+                    </view>
+
+                    <!-- 解析信息 -->
+                    <view class="analysis-section" v-if="examStore.currentQuestion.originalType === 1">
+                        <view class="answer-status">
+                            <text>正确答案是: <text class="correct-answer-text">{{ examStore.currentQuestion.correctAnswer || '无' }}</text></text>
+                            <text>你的答案是: <text :class="{'incorrect-answer-text': examStore.currentQuestion.status === 'incorrect', 'correct-answer-text': examStore.currentQuestion.status === 'correct'}">{{ examStore.currentQuestion.stuAnswer || '未作答' }}</text></text>
+                            <text>{{ examStore.currentQuestion.status === 'correct' ? '回答正确' : (examStore.currentQuestion.status === 'incorrect' ? '回答错误' : '') }}</text>
+                        </view>
+                        <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
+                            <text class="comment-label">教师评语:</text>
+                            <view class="comment-content-text">
+                                <text>{{ examStore.currentQuestion.teacherComment }}</text>
+                            </view>
+                        </view>
+                        <view class="answer-toggle-btn-container">
+                            <button class="answer-toggle-btn"
+                              :class="{'answered': showDetailArr[examStore.currentQuestionIndex]}"
+                              @click="toggleShowDetail(examStore.currentQuestionIndex)">
+                              {{ showDetailArr[examStore.currentQuestionIndex] ? (examStore.currentQuestion.originalType === 1 ? '隐藏解析' : '隐藏正确答案') : (examStore.currentQuestion.originalType === 1 ? '查看解析' : '查看正确答案') }}
+                            </button>
+                        </view>
+                        <view v-if="showDetailArr[examStore.currentQuestionIndex]">
+                            <view class="analysis-content-text">
+                                <text class="analysis-label">解析:</text>
+                                <view class="analysis-text">
+                                    <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
+                                        <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                        <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                        <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
+                                    </template>
+                                    <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
+                                </view>
+                            </view>
                         </view>
                     </view>
                 </view>
@@ -223,7 +244,7 @@
                                 <view class="option-text-content">
                                     <!-- Iterate through option text segments -->
                                      <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
-                                         <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                         <text v-if="segment.type === 'text'" v-html="segment.content"></text>
                                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                                          <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image" @click="previewImage(segment.url)"></image>
                                      </template>
@@ -254,6 +275,14 @@
                             <text v-else>未作答</text>
                          </view>
 
+                         <!-- 教师评语 -->
+                         <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
+                             <text class="comment-label">教师评语:</text>
+                             <view class="comment-content-text">
+                                 <text>{{ examStore.currentQuestion.teacherComment }}</text>
+                             </view>
+                         </view>
+
                          <!-- 正确答案（仅解答题）-->
                          <view class="correct-solution-section" v-if="examStore.currentQuestion.originalType === 2 || examStore.currentQuestion.originalType === 3">
                              <text class="solution-label">正确答案:</text>
@@ -268,14 +297,6 @@
                                  <text v-else>暂无答案</text>
                              </view>
                          </view>
-
-                         <!-- 教师评语 -->
-                         <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
-                             <text class="comment-label">教师评语:</text>
-                             <view class="comment-content-text">
-                                 <text>{{ examStore.currentQuestion.teacherComment }}</text>
-                             </view>
-                         </view>
                     </template>
                 </view>
 
@@ -288,27 +309,96 @@
                 </view>
 
                  <!-- 解析信息 -->
-                <view class="analysis-section">
-                    <template v-if="examStore.currentQuestion.originalType === 1"> <!-- 选择题显示正确答案和判断 -->
-                        <view class="answer-status">
-                            <text>正确答案是: <text class="correct-answer-text">{{ examStore.currentQuestion.correctAnswer || '无' }}</text></text>
-                            <text>你的答案是: <text :class="{'incorrect-answer-text': examStore.currentQuestion.status === 'incorrect', 'correct-answer-text': examStore.currentQuestion.status === 'correct'}">{{ examStore.currentQuestion.stuAnswer || '未作答' }}</text></text>
-                            <text>{{ examStore.currentQuestion.status === 'correct' ? '回答正确' : (examStore.currentQuestion.status === 'incorrect' ? '回答错误' : '') }}</text>
+                <view class="analysis-section" v-if="examStore.currentQuestion.originalType === 1">
+                    <view class="answer-status">
+                        <text>正确答案是: <text class="correct-answer-text">{{ examStore.currentQuestion.correctAnswer || '无' }}</text></text>
+                        <text>你的答案是: <text :class="{'incorrect-answer-text': examStore.currentQuestion.status === 'incorrect', 'correct-answer-text': examStore.currentQuestion.status === 'correct'}">{{ examStore.currentQuestion.stuAnswer || '未作答' }}</text></text>
+                        <text>{{ examStore.currentQuestion.status === 'correct' ? '回答正确' : (examStore.currentQuestion.status === 'incorrect' ? '回答错误' : '') }}</text>
+                    </view>
+                    <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
+                        <text class="comment-label">教师评语:</text>
+                        <view class="comment-content-text">
+                            <text>{{ examStore.currentQuestion.teacherComment }}</text>
                         </view>
-                    </template>
-                    <view class="analysis-content-text">
-                         <text class="analysis-label">解析:</text>
-                         <view class="analysis-text">
-                              <!-- Render analysis text with MathJax component -->
-                             <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
-                                 <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                 <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                 <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
-                             </template>
-                              <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
-                         </view>
+                    </view>
+                    <view class="answer-toggle-btn-container">
+                        <button class="answer-toggle-btn"
+                          :class="{'answered': showDetailArr[examStore.currentQuestionIndex]}"
+                          @click="toggleShowDetail(examStore.currentQuestionIndex)">
+                          {{ showDetailArr[examStore.currentQuestionIndex] ? (examStore.currentQuestion.originalType === 1 ? '隐藏解析' : '隐藏正确答案') : (examStore.currentQuestion.originalType === 1 ? '查看解析' : '查看正确答案') }}
+                        </button>
+                    </view>
+                    <view v-if="showDetailArr[examStore.currentQuestionIndex]">
+                        <view class="analysis-content-text">
+                            <text class="analysis-label">解析:</text>
+                            <view class="analysis-text">
+                                <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
+                                    <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                    <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                    <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
+                                </template>
+                                <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
+                            </view>
+                        </view>
                     </view>
                 </view>
+
+                <!-- 填空题和解答题 正确答案和解析部分 -->
+                <template v-else-if="examStore.currentQuestion.originalType === 2 || examStore.currentQuestion.originalType === 3">
+                    <view class="student-answer">
+                        <text class="answer-label">你的答案:</text>
+                        <template v-if="examStore.currentQuestion.imageUrls">
+                            <view class="image-preview-list">
+                                <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(examStore.currentQuestion.imageUrls) ? examStore.currentQuestion.imageUrls : [examStore.currentQuestion.imageUrls])" :key="index">
+                                    <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(imageUrl)"></image>
+                                </view>
+                            </view>
+                        </template>
+                        <template v-else-if="examStore.currentQuestion.stuAnswer">
+                            <text>{{ examStore.currentQuestion.stuAnswer }}</text>
+                        </template>
+                        <text v-else>未作答</text>
+                    </view>
+                    <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
+                        <text class="comment-label">教师评语:</text>
+                        <view class="comment-content-text">
+                            <text>{{ examStore.currentQuestion.teacherComment }}</text>
+                        </view>
+                    </view>
+                    <view class="answer-toggle-btn-container">
+                        <button class="answer-toggle-btn"
+                          :class="{'answered': showDetailArr[examStore.currentQuestionIndex]}"
+                          @click="toggleShowDetail(examStore.currentQuestionIndex)">
+                          {{ showDetailArr[examStore.currentQuestionIndex] ? (examStore.currentQuestion.originalType === 1 ? '隐藏解析' : '隐藏正确答案') : (examStore.currentQuestion.originalType === 1 ? '查看解析' : '查看正确答案') }}
+                        </button>
+                    </view>
+                    <view v-if="showDetailArr[examStore.currentQuestionIndex]">
+                        <view class="correct-solution-section">
+                            <text class="solution-label">正确答案:</text>
+                            <view class="solution-content-text">
+                                <template v-if="examStore.currentQuestion.correctAnswerSegments && examStore.currentQuestion.correctAnswerSegments.length > 0">
+                                    <template v-for="(segment, index) in examStore.currentQuestion.correctAnswerSegments" :key="index">
+                                        <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                        <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                        <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image" @click="previewImage(segment.url)"></image>
+                                    </template>
+                                </template>
+                                <text v-else>暂无答案</text>
+                            </view>
+                        </view>
+                        <view class="analysis-content-text">
+                            <text class="analysis-label">解析:</text>
+                            <view class="analysis-text">
+                                <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
+                                    <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                    <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                    <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
+                                </template>
+                                <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
+                            </view>
+                        </view>
+                    </view>
+                </template>
             </view>
         </scroll-view>
 
@@ -780,6 +870,21 @@ const previewImage = (clickedImageUrl) => {
 const showQuestionCard = ref(false);
 const toggleQuestionCard = () => {
     showQuestionCard.value = !showQuestionCard.value;
+};
+
+// 新增：每题的解析/答案显示状态
+const showDetailArr = ref([]);
+
+// 监听 questions 加载，初始化 showDetailArr
+watch(() => examStore.questions, (newValue) => {
+  if (newValue && newValue.length > 0) {
+    showDetailArr.value = new Array(newValue.length).fill(false);
+  }
+}, { immediate: true });
+
+// 切换显示/隐藏
+const toggleShowDetail = (index) => {
+  showDetailArr.value[index] = !showDetailArr.value[index];
 };
 
 onMounted(() => {
@@ -1556,6 +1661,36 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   display: block; /* Make it a block element */
   margin: 10rpx auto; /* Center image and add vertical margin */
   border-radius: 8rpx; /* Optional: add some border radius */
+}
+
+.answer-toggle-btn-container {
+  text-align: center;
+  margin: 20rpx 0;
+}
+.answer-toggle-btn {
+  background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
+  color: #fff;
+  border: none;
+  padding: 16rpx 40rpx;
+  border-radius: 30rpx;
+  font-size: 30rpx;
+  font-weight: 500;
+  box-shadow: 0 4rpx 15rpx rgba(0, 122, 255, 0.1);
+  margin-bottom: 10rpx;
+  width: 80%;
+  transition: all 0.3s ease;
+}
+.answer-toggle-btn.answered {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ffa500 100%);
+  box-shadow: 0 4rpx 15rpx rgba(255, 107, 107, 0.3);
+}
+.answer-toggle-btn:active {
+  opacity: 0.8;
+}
+
+/* 只影响解答题/填空题的解析内容 */
+.correct-solution-section + .analysis-content-text .analysis-text {
+  color: #555;
 }
 
 </style> 
