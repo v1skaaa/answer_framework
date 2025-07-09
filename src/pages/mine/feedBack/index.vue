@@ -26,7 +26,7 @@
       <view v-else class="feedback-items">
         <view v-for="item in feedbackList" :key="item.id" class="feedback-item">
           <view class="feedback-content">{{ item.content }}</view>
-          <view class="feedback-time">{{ item.createdAt }}</view>
+          <view class="feedback-time">反馈时间：{{ item.createdAt }}</view>
         </view>
       </view>
     </view>

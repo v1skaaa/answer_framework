@@ -8,7 +8,7 @@
         </view>
       </view>
       <view class="center-section">
-        <text class="header-title">题目解析</text>
+        <text class="header-title">我的试卷</text>
       </view>
       <view class="right-section"></view> <!-- Right placeholder -->
     </view>
@@ -22,7 +22,8 @@
         >
         <!-- 将试卷名称和右侧元素放在这里，在返回按钮下方 -->
         <view class="content-header">
-            <view class="paper-title-in-content">{{ examStore.paperTitle }}</view> <!-- 试卷名称 -->
+            <!-- <view class="paper-title-in-content">{{ examStore.paperTitle }}</view> --> <!-- 试卷名称 -->
+            <view class="paper-title-in-content">题目解析</view>
              <view class="content-header-icons">
                 <text class="question-counter">{{ examStore.currentQuestionIndex + 1 }} / {{ examStore.totalQuestions }}</text> <!-- 题目标号和总数 -->
                 <!-- 收藏图标 -->
@@ -1112,7 +1113,7 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     display: flex; /* 使用 flex 布局 */
     justify-content: flex-start; /* 左对齐 */
     gap: 40rpx; /* 增加两个文本之间的间距 */
-    padding-left: 20rpx; /* 与题干左侧对齐 */
+    //padding-left: 20rpx; /* 与题干左侧对齐 */
     font-size: 28rpx; /* 调整字体大小 */
     color: #666; /* 调整颜色 */
     font-weight: bold; /* 加粗 */

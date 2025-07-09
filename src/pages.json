@@ -79,7 +79,7 @@
 		{
 			"path": "pages/exam/analysis/index",
 			"style": {
-				"navigationBarTitleText": "题目解析",
+				"navigationBarTitleText": "我的试卷",
 				"navigationStyle": "custom"
 			}
 		},
@@ -114,7 +114,7 @@
 		{
 			"path": "pages/mine/wrongQuestionsAnalysis/index",
 			"style": {
-				"navigationBarTitleText": "错题分析",
+				"navigationBarTitleText": "我的错题",
 				"navigationStyle": "custom"
 			}
 		},

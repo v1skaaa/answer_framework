@@ -28,7 +28,7 @@
                 <uni-icons :type="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? 'star-filled' : 'star'" size="24" :color="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? '#ffb300' : '#333'" class="header-icon" @click="examStore.toggleFavorite(examStore.currentQuestion.id)"></uni-icons> <!-- 选择题收藏 -->
                 <!-- <view v-else class="header-icon-placeholder"></view> --> <!-- 其他题型占位符 -->
                 <uni-icons type="bars" size="24" color="#333" class="header-icon" @click="examStore.toggleQuestionCard"></uni-icons> <!-- 答题卡 -->
-                <text class="countdown">{{ examStore.formattedTime }}</text> <!-- 倒计时 -->
+                <!-- <text class="countdown">{{ examStore.formattedTime }}</text> --> <!-- 倒计时 -->
             </view>
         </view>
 
@@ -1443,7 +1443,7 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   color: #666;
   margin-bottom: 20rpx;
   text-align: left; /* 改变为左对齐 */
-  padding-left: 20rpx; /* 与内容区域左侧对齐 */
+  //padding-left: 20rpx; /* 与内容区域左侧对齐 */
   font-weight: bold;
 }
 

@@ -8,7 +8,7 @@
         </view>
       </view>
       <view class="center-section">
-        <text class="header-title">错题分析</text>
+        <text class="header-title">我的错题</text>
       </view>
       <view class="right-section"></view>
     </view>
@@ -97,11 +97,7 @@
               </view>
             </view>
 
-            <!-- 正确答案（仅选择题，analysis风格）-->
-            <view v-if="currentQuestion.type === 1 && currentQuestion.correctAnswer" class="answer-status">
-              <text>正确答案是: <text class="correct-answer-text">{{ currentQuestion.correctAnswer }}</text></text>
-            </view>
-            <!-- 教师评语（选择题专属，放在正确答案下方、解析上方） -->
+            <!-- 教师评语（选择题专属，放在正确答案上方、解析下方） -->
             <view v-if="currentQuestion.type === 1 && currentQuestion.teacherComment" class="teacher-comment-section">
               <text class="comment-label">教师评语:</text>
               <view class="comment-content-text">
@@ -109,26 +105,48 @@
               </view>
             </view>
 
-            <!-- 解析 -->
-            <view class="analysis-section">
-              <text class="analysis-label">解析:</text>
-              <view class="analysis-text">
-                <template v-for="(segment, index) in currentQuestion.analysisSegments" :key="index">
-                  <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                  <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
-                  <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)" />
-                </template>
-                <text v-if="!currentQuestion.analysisSegments || currentQuestion.analysisSegments.length === 0">暂无解析</text>
-              </view>
-            </view>
-
             <!-- 相似题目按钮 -->
-            <view class="similar-questions-section">
+            <view class="question-actions-row">
+              <button 
+                class="answer-button" 
+                :class="{ 'answered': showAnswer }"
+                @click="toggleAnswer"
+              >
+                {{ getAnswerButtonText() }}
+              </button>
               <button class="similar-questions-btn" @click="goToSimilarQuestions">
                 <uni-icons type="lightbulb" size="20" color="#007aff"></uni-icons>
                 <text class="similar-btn-text">查找相似题目</text>
               </button>
             </view>
+
+            <!-- 答案详情 -->
+            <view v-if="showAnswer" class="answer-detail">
+              <!-- 选择题正确答案 -->
+              <view v-if="currentQuestion.type === 1 && currentQuestion.correctAnswer" class="answer-section">
+                <text class="section-label">正确答案:</text>
+                <view class="answer-content">
+                  <view class="answer-text choice-answer">
+                    {{ currentQuestion.correctAnswer }}
+                  </view>
+                </view>
+              </view>
+
+              <!-- 解析 -->
+              <view class="analysis-section">
+                <text class="section-label">解析:</text>
+                <view class="analysis-content">
+                  <template v-for="(segment, index) in currentQuestion.analysisSegments" :key="index">
+                    <text v-if="segment.type === 'text'" v-html="segment.content"></text>
+                    <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
+                    <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)" />
+                  </template>
+                  <text v-if="!currentQuestion.analysisSegments || currentQuestion.analysisSegments.length === 0">暂无解析</text>
+                </view>
+              </view>
+            </view>
+
+            
           </view>
         </scroll-view>
       </transition>
@@ -178,6 +196,7 @@ import MathJax from '@/components/MathJax.vue';
 const questions = ref([]);
 const currentQuestionIndex = ref(0);
 const showQuestionCard = ref(false);
+const showAnswer = ref(false);
 const transitionDirection = ref('left');
 const contentHeaderHeight = ref(60);
 const menuButtonHeight = ref(0);
@@ -250,7 +269,17 @@ const handleTouchEnd = () => {
 // --- end 滑动切换题目相关 ---
 
 const goBack = () => {
-  uni.navigateBack();
+    // 直接使用 switchTab 跳转到 mine 页面
+  uni.switchTab({
+    url: '/pages/mine/index',
+    fail: (err) => {
+      console.error('Navigation failed:', err);
+      uni.showToast({
+        title: '返回失败',
+        icon: 'none'
+      });
+    }
+  });
 };
 
 const goToSimilarQuestions = () => {
@@ -267,6 +296,20 @@ const goToSimilarQuestions = () => {
   });
 };
 
+// 切换答案显示状态
+const toggleAnswer = () => {
+  showAnswer.value = !showAnswer.value;
+};
+
+// 获取按钮文本
+const getAnswerButtonText = () => {
+  if (currentQuestion.value.type === 1) {
+    return showAnswer.value ? '隐藏正确答案' : '查看正确答案';
+  } else {
+    return showAnswer.value ? '隐藏解析' : '查看解析';
+  }
+};
+
 const toggleQuestionCard = () => {
   showQuestionCard.value = !showQuestionCard.value;
 };
@@ -275,6 +318,7 @@ const goToQuestion = (idx) => {
   if (idx >= 0 && idx < questions.value.length) {
     transitionDirection.value = idx > currentQuestionIndex.value ? 'left' : 'right';
     currentQuestionIndex.value = idx;
+    showAnswer.value = false; // 切换题目时隐藏答案
   }
 };
 
@@ -282,12 +326,14 @@ const handlePrevQuestion = () => {
   if (currentQuestionIndex.value > 0) {
     transitionDirection.value = 'right';
     currentQuestionIndex.value--;
+    showAnswer.value = false; // 切换题目时隐藏答案
   }
 };
 const handleNextQuestion = () => {
   if (currentQuestionIndex.value < questions.value.length - 1) {
     transitionDirection.value = 'left';
     currentQuestionIndex.value++;
+    showAnswer.value = false; // 切换题目时隐藏答案
   }
 };
 
@@ -562,7 +608,7 @@ onLoad(async (options) => {
   display: flex;
   justify-content: flex-start;
   gap: 40rpx;
-  padding-left: 20rpx;
+  //padding-left: 20rpx;
   font-size: 28rpx;
   color: #666;
   font-weight: bold;
@@ -704,7 +750,7 @@ onLoad(async (options) => {
   justify-content: center;
 }
 .similar-questions-btn {
-  background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
+  background: linear-gradient(135deg, #5ac8fa 0%, #007aff 100%);
   color: #fff;
   border: none;
   border-radius: 50rpx;
@@ -723,14 +769,115 @@ onLoad(async (options) => {
 .similar-btn-text {
   font-weight: 500;
 }
-.answer-status {
-  margin-top: 20rpx;
-  padding-top: 20rpx;
-  border-top: 1rpx solid #eee;
+
+/* 答案按钮样式 */
+.question-actions-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 80rpx;
+  margin: 30rpx 0;
 }
-.correct-answer-text {
-  color: #4CAF50;
+
+.similar-questions-btn,
+.answer-button {
+  margin: 0;
+}
+
+.answer-button {
+  background: linear-gradient(135deg, #007aff 0%, #5ac8fa 100%);
+  color: #fff;
+  border: none;
+  padding: 10rpx 30rpx;
+  border-radius: 50rpx;
+  font-size: 28rpx;
+  font-weight: 500;
+  width: 37%;
+  transition: all 0.3s ease;
+  box-shadow: 0 3rpx 10rpx rgba(0, 122, 255, 0.3);
+}
+
+.answer-button.answered {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ffa500 100%);
+  box-shadow: 0 3rpx 10rpx rgba(255, 107, 107, 0.3);
+}
+
+.answer-button:active {
+  transform: scale(0.98);
+}
+
+/* 答案详情样式 */
+.answer-detail {
+  border-top: 1rpx solid #f0f0f0;
+  padding-top: 20rpx;
+  margin-top: 20rpx;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20rpx);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-label {
+  font-size: 28rpx;
   font-weight: bold;
+  color: #333;
+  display: block;
+  margin-bottom: 15rpx;
+}
+
+.answer-section {
+  margin-bottom: 25rpx;
+}
+
+.answer-content {
+  margin-top: 10rpx;
+}
+
+.answer-text {
+  font-size: 30rpx;
+  font-weight: 500;
+  color: #4caf50;
+  background: linear-gradient(135deg, #e8f5e8 0%, #f0fff0 100%);
+  padding: 15rpx 20rpx;
+  border-radius: 12rpx;
+  border: 1rpx solid #4caf50;
+  display: block;
+  line-height: 1.6;
+  word-break: break-word;
+}
+
+.answer-text.choice-answer {
+  display: inline-block;
+  min-width: 60rpx;
+  text-align: center;
+}
+
+.analysis-content {
+  font-size: 28rpx;
+  color: #555;
+  line-height: 1.6;
+  word-break: break-word;
+  font-size: 0;
+}
+
+.analysis-content text {
+  vertical-align: middle;
+  font-size: 28rpx;
+}
+
+.analysis-content .mathjax-container {
+  display: inline-block;
+  vertical-align: middle;
+  font-size: 28rpx;
 }
 .teacher-comment-section {
   margin-top: 20rpx;
