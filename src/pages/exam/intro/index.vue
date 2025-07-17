@@ -370,9 +370,9 @@ const startExam = () => {
     // 在跳转前清空所有图片缓存
     examStore.resetUploadedImages();
     
-    // 使用 uni.navigateTo 跳转到答题页面，并传递 sourceId 和 pushId
+    // 使用 uni.navigateTo 跳转到答题页面，并传递 sourceId、pushId 和 paperName
     uni.navigateTo({
-      url: `/pages/exam/answering/index?sourceId=${paper.value.id}${currentPushId.value ? `&pushId=${currentPushId.value}` : ''}`,
+      url: `/pages/exam/answering/index?sourceId=${paper.value.id}${currentPushId.value ? `&pushId=${currentPushId.value}` : ''}&paperName=${encodeURIComponent(paper.value.title)}`,
       success: () => {
         console.log('Navigated to answering page');
       },

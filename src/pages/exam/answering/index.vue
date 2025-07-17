@@ -27,7 +27,12 @@
                 <!-- 根据当前题目类型显示不同的收藏图标或占位符 -->
                 <uni-icons :type="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? 'star-filled' : 'star'" size="24" :color="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? '#ffb300' : '#333'" class="header-icon" @click="examStore.toggleFavorite(examStore.currentQuestion.id)"></uni-icons> <!-- 选择题收藏 -->
                 <!-- <view v-else class="header-icon-placeholder"></view> --> <!-- 其他题型占位符 -->
-                <uni-icons type="bars" size="24" color="#333" class="header-icon" @click="examStore.toggleQuestionCard"></uni-icons> <!-- 答题卡 -->
+                <image
+                  src="/static/images/datika.png"
+                  class="header-icon datika-icon"
+                  @click="examStore.toggleQuestionCard"
+                  mode="widthFix"
+                /> <!-- 答题卡 -->
                 <!-- <text class="countdown">{{ examStore.formattedTime }}</text> --> <!-- 倒计时 -->
             </view>
         </view>
@@ -768,6 +773,10 @@ onLoad((options) => {
   if (options && options.sourceId) {
     const sourceId = options.sourceId;
     currentPushId.value = options.pushId || null; // 获取 pushId
+    // 新增：处理试卷名称
+    if (options.paperName) {
+      examStore.paperTitle = decodeURIComponent(options.paperName);
+    }
     console.log('answering: Received sourceId from options:', sourceId);
     console.log('answering: Received pushId from options:', currentPushId.value); // 打印 pushId
     
@@ -1445,6 +1454,15 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   text-align: left; /* 改变为左对齐 */
   //padding-left: 20rpx; /* 与内容区域左侧对齐 */
   font-weight: bold;
+}
+
+/* datika 答题卡图标样式 */
+.datika-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-block;
+  vertical-align: middle;
+  cursor: pointer;
 }
 
 </style> 

@@ -323,7 +323,9 @@ export const useExamStore = defineStore('exam', () => {
         // 合并排序
         const all = [...choice, ...fill, ...application].sort((a, b) => a.number - b.number).map((q, index) => ({ ...q, index }));
         questions.value = all;
-        paperTitle.value = res.result.paperName || '试卷名称';
+        if (!paperTitle.value) {
+          paperTitle.value = res.result.paperName || '试卷名称';
+        }
       } else {
         console.error('Failed to load questions:', res.msg)
         uni.showToast({

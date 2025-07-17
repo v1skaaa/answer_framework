@@ -325,22 +325,35 @@ const handleSearch = async () => {
 
 onLoad((options) => {
   console.log('Wrong Questions Page Loaded');
-  
+  // decode 参数
+  if (options.startTime) options.startTime = decodeURIComponent(options.startTime);
+  if (options.endTime) options.endTime = decodeURIComponent(options.endTime);
+  if (options.studentId) options.studentId = decodeURIComponent(options.studentId);
+
   // 如果有URL参数，设置时间并自动查询
   if (options.startTime && options.endTime) {
-    const startDateTime = new Date(decodeURIComponent(options.startTime));
-    const endDateTime = new Date(decodeURIComponent(options.endTime));
-    
+    const startDateTime = new Date(options.startTime);
+    const endDateTime = new Date(options.endTime);
     // 设置日期
     startDate.value = startDateTime.toISOString().split('T')[0];
     endDate.value = endDateTime.toISOString().split('T')[0];
-    
     // 设置时间
     startTime.value = String(startDateTime.getHours());
     endTime.value = String(endDateTime.getHours());
     
-    // 自动查询
-    handleSearch();
+    // 如果有传递的 studentId，临时保存用于查询
+    if (options.studentId) {
+      // 临时替换 userStore.id 用于这次查询
+      const originalId = userStore.id;
+      userStore.id = options.studentId;
+      // 自动查询
+      handleSearch();
+      // 查询完成后恢复原来的 id
+      userStore.id = originalId;
+    } else {
+      // 自动查询
+      handleSearch();
+    }
   }
 });
 

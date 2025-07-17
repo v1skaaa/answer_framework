@@ -36,7 +36,12 @@
                   >
                 </uni-icons>
                 <!-- 答题卡图标 (在解析页可能不需要答题卡，但保留结构) -->
-                <uni-icons type="bars" size="24" color="#333" class="header-icon" @click="toggleQuestionCard"></uni-icons>
+                <image
+                  src="/static/images/datika.png"
+                  class="header-icon datika-icon"
+                  @click="toggleQuestionCard"
+                  mode="widthFix"
+                />
              </view>
         </view>
 
@@ -1692,6 +1697,16 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 /* 只影响解答题/填空题的解析内容 */
 .correct-solution-section + .analysis-content-text .analysis-text {
   color: #555;
+}
+
+/* datika 答题卡图标样式 */
+.datika-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-block;
+  vertical-align: middle;
+  cursor: pointer;
+  margin-right: 16px;
 }
 
 </style> 

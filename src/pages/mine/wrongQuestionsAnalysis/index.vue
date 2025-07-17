@@ -26,7 +26,12 @@
         <view class="paper-title-in-content">错题分析</view>
         <view class="content-header-icons">
           <text class="question-counter">{{ currentQuestionIndex + 1 }} / {{ questions.length }}</text>
-          <uni-icons type="bars" size="24" color="#333" class="header-icon" @click="toggleQuestionCard"></uni-icons>
+          <image
+            src="/static/images/datika.png"
+            class="header-icon datika-icon"
+            @click="toggleQuestionCard"
+            mode="widthFix"
+          />
         </view>
       </view>
 
@@ -269,17 +274,32 @@ const handleTouchEnd = () => {
 // --- end 滑动切换题目相关 ---
 
 const goBack = () => {
-    // 直接使用 switchTab 跳转到 mine 页面
-  uni.switchTab({
-    url: '/pages/mine/index',
-    fail: (err) => {
-      console.error('Navigation failed:', err);
-      uni.showToast({
-        title: '返回失败',
-        icon: 'none'
-      });
-    }
-  });
+  const pages = getCurrentPages();
+  const currentPage = pages[pages.length - 1];
+  // #ifdef H5
+  const options = currentPage.options || currentPage.$page?.options || {};
+  // #else
+  const options = currentPage.options || {};
+  // #endif
+
+  const { studentId, startTime, endTime, knowledgePointId } = options;
+  let url = '';
+  if (knowledgePointId) {
+    url = `/pages/mine/situation/index?studentId=${encodeURIComponent(studentId || '')}&startTime=${encodeURIComponent(startTime || '')}&endTime=${encodeURIComponent(endTime || '')}&knowledgePointId=${encodeURIComponent(knowledgePointId)}`;
+  } else {
+    url = `/pages/mine/wrongQuestions/index?studentId=${encodeURIComponent(studentId || '')}&startTime=${encodeURIComponent(startTime || '')}&endTime=${encodeURIComponent(endTime || '')}`;
+  }
+
+  if (pages.length <= 1) {
+    uni.redirectTo({
+      url,
+      fail: () => {
+        uni.navigateTo({ url });
+      }
+    });
+  } else {
+    uni.navigateBack();
+  }
 };
 
 const goToSimilarQuestions = () => {
@@ -582,6 +602,15 @@ onLoad(async (options) => {
   margin-left: 20rpx;
   display: flex;
   align-items: center;
+}
+/* datika 答题卡图标样式 */
+.datika-icon {
+  width: 22px;
+  height: 22px;
+  display: inline-block;
+  vertical-align: middle;
+  cursor: pointer;
+  margin-right: 16px;
 }
 .question-content {
   position: absolute;

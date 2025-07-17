@@ -284,26 +284,37 @@ onBeforeUnmount(() => {
   // #endif
 });
 
-onLoad(() => {
+onLoad((options = {}) => {
   // 页面加载时的逻辑
   // 自动查询半个月区间的知识点分析
-  const studentId = uni.getStorageSync('id');
+  // decode 参数
+  let studentId = uni.getStorageSync('id');
+  let startTime, endTime, knowledgePointId;
+  if (options.studentId) studentId = decodeURIComponent(options.studentId);
+  if (options.startTime) startTime = decodeURIComponent(options.startTime);
+  if (options.endTime) endTime = decodeURIComponent(options.endTime);
+  if (options.knowledgePointId) knowledgePointId = decodeURIComponent(options.knowledgePointId);
+
   if (!studentId) return;
-  // 计算endTime为今天23:59:59
-  const now = new Date();
-  const endDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  endDate.value = endDateStr;
-  const endTime = `${endDateStr} 23:59:59`;
-  // 计算startTime为半个月前的0:00:00
-  const startDateObj = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
-  const startDateStr = `${startDateObj.getFullYear()}-${String(startDateObj.getMonth() + 1).padStart(2, '0')}-${String(startDateObj.getDate()).padStart(2, '0')}`;
+  // 如果有参数则用参数，否则默认半个月
+  let now = new Date();
+  let endDateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  let startDateObj = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  let startDateStr = `${startDateObj.getFullYear()}-${String(startDateObj.getMonth() + 1).padStart(2, '0')}-${String(startDateObj.getDate()).padStart(2, '0')}`;
+  if (startTime) {
+    startDateStr = startTime.split(' ')[0];
+  }
+  if (endTime) {
+    endDateStr = endTime.split(' ')[0];
+  }
   startDate.value = startDateStr;
-  const startTime = `${startDateStr} 00:00:00`;
+  endDate.value = endDateStr;
+
   // 查询
   (async () => {
     uni.showLoading({ title: '加载中...' });
     try {
-      const res = await getWrongQuestionKnowledgePoints(studentId, startTime, endTime);
+      const res = await getWrongQuestionKnowledgePoints(studentId, startTime || `${startDateStr} 00:00:00`, endTime || `${endDateStr} 23:59:59`, knowledgePointId);
       uni.hideLoading();
       if (res.flag === '1' && Array.isArray(res.result)) {
         pieData.value = res.result.map(item => ({ value: item.count, name: item.name, knowledgePointId: item.knowledgePointId}));
