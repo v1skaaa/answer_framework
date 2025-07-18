@@ -743,7 +743,7 @@ onLoad(async (options) => {
 }
 
 .section-label {
-  font-size: 28rpx;
+  font-size: 32rpx;
   font-weight: bold;
   color: #333;
   display: block;

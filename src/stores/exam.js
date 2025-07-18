@@ -5,6 +5,7 @@ import { submitExamComplete } from '@/api/exam'
 import { useUserStore } from '@/stores/user'
 import { getExamDetails } from '@/api/exam'
 import { getImageFromMinio } from '@/api/exam'
+import { getVideoPreSignedUrls } from '@/api/exam';
 
 // 工具函数：去除图片路径中的域名和端口，只保留相对路径
 function normalizeImagePath(path) {
@@ -344,33 +345,35 @@ export const useExamStore = defineStore('exam', () => {
     }
   }
 
-  const selectOption = (value) => {
+  // 修改 selectOption 方法，支持 questionId
+  const selectOption = (questionId, value) => {
     if (!value) {
       console.warn('选项值未定义')
       return
     }
-    
-    const currentQ = questions.value[currentQuestionIndex.value]
-    if (currentQ) {
-      if (currentQ.type === 'choice') {
-        // 根据 choiceType 判断是单选还是多选
-        if (currentQ.choiceType === 1) {
-          // 单选题：直接设置选中的答案
-          currentQ.selectedAnswers = [value]
-        } else if (currentQ.choiceType === 2) {
-          // 多选题：切换选中状态
-        const index = currentQ.selectedAnswers.indexOf(value)
-        if (index > -1) {
-          currentQ.selectedAnswers.splice(index, 1)
-        } else {
-          currentQ.selectedAnswers.push(value)
+    let q = null;
+    if (questionId) {
+      q = questions.value.find(q => q.id === questionId)
+    } else {
+      q = questions.value[currentQuestionIndex.value]
+    }
+    if (q) {
+      if (q.type === 'choice') {
+        if (q.choiceType === 1) {
+          q.selectedAnswers = [value]
+        } else if (q.choiceType === 2) {
+          const index = q.selectedAnswers.indexOf(value)
+          if (index > -1) {
+            q.selectedAnswers.splice(index, 1)
+          } else {
+            q.selectedAnswers.push(value)
+          }
+          q.selectedAnswers.sort()
         }
-        currentQ.selectedAnswers.sort()
-        }
-        console.log(`Question ${currentQ.number}: Selected option ${value}. Current selections:`, currentQ.selectedAnswers)
+        console.log(`Question ${q.number}: Selected option ${value}. Current selections:`, q.selectedAnswers)
       } else {
-        currentQ.selectedAnswer = value
-        console.log(`Question ${currentQ.number}: Selected answer ${value}. Current answer:`, currentQ.selectedAnswer)
+        q.selectedAnswer = value
+        console.log(`Question ${q.number}: Selected answer ${value}. Current answer:`, q.selectedAnswer)
       }
     }
   }
@@ -905,6 +908,27 @@ export const useExamStore = defineStore('exam', () => {
       console.log('getExamDetails API response:', res);
       if (res.flag === '1' && res.result) {
         const imageUrlMap = res.result.imageUrlMap || {};
+        // 收集所有videoId
+        const allVideoIds = [];
+        ['choiceAnswers', 'blankAnswers', 'applicationAnswers'].forEach(typeKey => {
+          (res.result[typeKey] || []).forEach(item => {
+            const vid = item.question && item.question.videoId;
+            if (vid) allVideoIds.push(vid);
+          });
+        });
+        const uniqueVideoIds = [...new Set(allVideoIds)];
+        // 批量请求视频URL
+        let videoUrlMap = {};
+        if (uniqueVideoIds.length > 0) {
+          try {
+            const videoRes = await getVideoPreSignedUrls(uniqueVideoIds);
+            if (videoRes.flag === '1' && videoRes.result) {
+              videoUrlMap = videoRes.result;
+            }
+          } catch (e) {
+            console.error('获取视频预签名URL失败', e);
+          }
+        }
         const allQuestions = [];
         let totalScoreAchieved = 0;
         let totalPaperScore = 0;
@@ -955,6 +979,12 @@ export const useExamStore = defineStore('exam', () => {
             if (item.detailRecord && item.detailRecord.imageUrls) {
               processedImageUrls = await processImageUrls(item.detailRecord.imageUrls);
             }
+            // 视频处理
+            const videoId = item.question.videoId;
+            let videoUrl = null;
+            if (videoId && videoUrlMap[videoId] && videoUrlMap[videoId].preSignedUrl) {
+              videoUrl = import.meta.env.VITE_VIDEO_BASE_URL + videoUrlMap[videoId].preSignedUrl;
+            }
             // 组装题目对象
             return {
               id: item.question.qaId || item.question.qbId || 'unknown-' + item.question.queSort,
@@ -977,6 +1007,8 @@ export const useExamStore = defineStore('exam', () => {
               imageUrls: processedImageUrls, // 使用处理后的图片URL
               detailRecordId: item.detailRecord ? item.detailRecord.detId : null,
               teacherComment: item.detailRecord ? item.detailRecord.teacherComment : null,
+              videoId,
+              videoUrl,
             };
           }));
         };
@@ -984,7 +1016,6 @@ export const useExamStore = defineStore('exam', () => {
         const choice = await processQuestions(res.result.choiceAnswers, '选择题', 1);
         const blank = await processQuestions(res.result.blankAnswers, '填空题', 2);
         const application = await processQuestions(res.result.applicationAnswers, '解答题', 3);
-        
         // 合并排序
         const all = [...choice, ...blank, ...application].sort((a, b) => a.number - b.number);
         questions.value = all;

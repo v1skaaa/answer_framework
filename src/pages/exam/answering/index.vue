@@ -1,5 +1,5 @@
 <template>
-  <view class="exam-answering-container" :style="{ paddingTop: containerPaddingTop }">
+  <view class="exam-answering-container">
     <!-- 自定义头部 (仅保留返回按钮) -->
     <view class="header-bar" :style="{ height: headerHeight, paddingTop: statusBarHeight + 'px' }">
       <view class="left-section">
@@ -9,15 +9,11 @@
       </view>
        <view class="right-section"></view> <!-- 右侧占位符以保持返回按钮居左 -->
     </view>
-
-    <!-- 题目内容区域容器，添加触摸事件监听 -->
-    <!-- 设置相对定位和隐藏溢出 -->
-    <view 
-        class="question-content-wrapper"
-        @touchstart="handleTouchStart"
-        @touchmove="handleTouchMove"
-        @touchend="handleTouchEnd"
-        >
+    <view v-if="loading" class="loading-state">
+      <uni-icons type="spinner-cycle" size="40" color="#007aff" class="loading-icon"></uni-icons>
+      <text class="loading-text">正在加载试题...</text>
+    </view>
+    <view v-else class="question-content-wrapper" :style="{ marginTop: headerHeight }">
         <!-- 将试卷名称和右侧元素放在这里，在返回按钮下方 -->
         <!-- 添加 ref 引用 -->
         <view class="content-header" ref="contentHeaderRef">
@@ -39,147 +35,47 @@
 
         <!-- Use transition component for non-mini-program platforms -->
         <!-- For mini-program, we'll use native animation -->
-        <transition :name="'slide-' + transitionDirection" v-if="!isMiniProgram">
-            <view 
-                class="question-content"
-                :key="examStore.currentQuestion.id"
-                :style="{
-                    top: contentHeaderHeight + 'px'
-                }"
-                >
-              <!-- Here display question text and images -->
-                <view class="question-main">
-                    <view class="question-score" v-if="examStore.currentQuestion.score">
-                        本题分值：{{ examStore.currentQuestion.score }}分
-                    </view>
-                    <!-- Render question stem with MathJax component -->
-                    <view class="question-stem-content">
-                         <!-- Iterate through text segments -->
-                         <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
-                             <view v-if="segment.type === 'text'" class="question-text-segment" v-html="segment.content"></view>
-                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image" @click="previewImage(segment.url)"></image>
-                             <text v-else-if="segment.type === 'multipleChoicePrefix'" class="multiple-choice-prefix">{{ segment.content }}</text>
-                         </template>
-                    </view>
-                    <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(examStore.currentQuestion.image)"></image>
-
-                    <!-- 答案区域 -->
-                    <view class="answer-area">
-                        <template v-if="examStore.currentQuestion.type === 'choice'">
-                            <template v-if="examStore.currentQuestion && examStore.currentQuestion.options && examStore.currentQuestion.options.length > 0">
-                                <view 
-                                    class="choice-item" 
-                                    v-for="(option, optionIndex) in examStore.currentQuestion.options" 
-                                    :key="optionIndex"
-                                    @click="examStore.selectOption(option.value)"
-                                    :class="{'selected': examStore.currentQuestion.selectedAnswers && examStore.currentQuestion.selectedAnswers.includes(option.value)}"
-                                    >
-                                    <text class="option-label">{{ option.label }}</text>
-                                     <!-- Render option text with MathJax component -->
-                                    <view class="option-text-content">
-                                        <!-- Iterate through option text segments -->
-                                         <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
-                                             <view v-if="segment.type === 'text'" class="option-text-segment" v-html="segment.content"></view>
-                                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image" @click="previewImage(segment.url)"></image>
-                                         </template>
-                                    </view>
-                                </view>
-                            </template>
-                             <template v-else>
-                                  <!-- 如果没有选项数据，可以显示一个提示 -->
-                                 <view class="unsupported-tip">
-                                     <text>本选择题暂无选项数据</text>
-                                 </view>
-                             </template>
-                        </template>
-
-                        <template v-else-if="examStore.currentQuestion.type === 'fill' || examStore.currentQuestion.type === 'application'">
-                            <!-- 填空题和解答题的拍照上传功能 -->
-                            <view class="upload-section">
-                                <view class="upload-header">
-                                    <text class="upload-title">拍照上传答案</text>
-                                    <text class="upload-tip">最多上传3张图片</text>
-                                </view>
-                                
-                                <!-- 已上传图片预览 -->
-                                <view class="image-preview-list" v-if="examStore.currentQuestionImages.length > 0">
-                                    <view 
-                                        class="image-preview-item" 
-                                        v-for="(image, index) in examStore.currentQuestionImages" 
-                                        :key="index"
-                                    >
-                                        <image 
-                                            :src="`data:image/jpeg;base64,${image.base64}`" 
-                                            mode="aspectFill" 
-                                            class="preview-image"
-                                            @click="previewImage(`data:image/jpeg;base64,${image.base64}`)"
-                                        ></image>
-                                        <view class="image-actions">
-                                            <view class="delete-btn" @click="deleteImage(index)">
-                                                <uni-icons type="trash" size="20" color="#ff4d4f"></uni-icons>
-                                            </view>
-                                        </view>
-                                    </view>
-                                </view>
-
-                                <!-- 上传按钮 -->
-                                <view 
-                                    class="upload-btn" 
-                                    v-if="examStore.currentQuestionImages.length < 3"
-                                    @click="chooseAndUploadImage"
-                                >
-                                    <uni-icons type="camera" size="24" color="#007aff"></uni-icons>
-                                    <text>拍照上传</text>
-                                </view>
-                            </view>
-                        </template>
-                    </view>
+        <swiper
+          class="questions-swiper"
+          :style="{ height: swiperHeight }"
+          :current="currentIndex"
+          @change="onSwiperChange"
+          :duration="300"
+        >
+          <swiper-item
+            v-for="(question, qIndex) in questions"
+            :key="question.id || qIndex"
+            class="swiper-item"
+          >
+            <scroll-view class="question-scroll" scroll-y="true" style="height: 100%; width: 100%;">
+              <view class="question-main">
+                <!-- 题目分值 -->
+                <view class="question-score" v-if="question.score">
+                    本题分值：{{ question.score }}分
                 </view>
-            </view>
-        </transition>
-
-         <!-- Content for mini-program using native animation -->
-        <view 
-            v-if="isMiniProgram"
-            class="question-content"
-            :style="{
-                top: contentHeaderHeight + 'px'
-            }"
-            :animation="animationData"
-            >
-            <view class="question-main">
-                 <view class="question-score" v-if="examStore.currentQuestion.score">
-                    本题分值：{{ examStore.currentQuestion.score }}分
-                </view>
-                 <!-- Render question stem with MathJax component -->
+                <!-- 题干 -->
                 <view class="question-stem-content">
-                     <!-- Iterate through text segments -->
-                     <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
+                     <template v-for="(segment, index) in question.textSegments" :key="index">
                          <view v-if="segment.type === 'text'" class="question-text-segment" v-html="segment.content"></view>
                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                          <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image" @click="previewImage(segment.url)"></image>
                          <text v-else-if="segment.type === 'multipleChoicePrefix'" class="multiple-choice-prefix">{{ segment.content }}</text>
                      </template>
                 </view>
-                <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(examStore.currentQuestion.image)"></image>
-
+                <image v-if="question.image" :src="question.image" mode="widthFix" class="question-image" @click="previewImage(question.image)"></image>
                 <!-- 答案区域 -->
                 <view class="answer-area">
-                    <template v-if="examStore.currentQuestion.type === 'choice'">
-                        <template v-if="examStore.currentQuestion && examStore.currentQuestion.options && examStore.currentQuestion.options.length > 0">
+                    <template v-if="question.type === 'choice'">
+                        <template v-if="question && question.options && question.options.length > 0">
                             <view 
                                 class="choice-item" 
-                                v-for="(option, optionIndex) in examStore.currentQuestion.options" 
+                                v-for="(option, optionIndex) in question.options" 
                                 :key="optionIndex"
-                                @click="examStore.selectOption(option.value)"
-                                :class="{'selected': examStore.currentQuestion.selectedAnswers && examStore.currentQuestion.selectedAnswers.includes(option.value)}"
+                                @click="examStore.selectOption(question.id, option.value)"
+                                :class="{'selected': question.selectedAnswers && question.selectedAnswers.includes(option.value)}"
                                 >
                                 <text class="option-label">{{ option.label }}</text>
-                                 <!-- Render option text with MathJax component -->
-                                <view class="option-text-content">
-                                    <!-- Iterate through option text segments -->
+                                 <view class="option-text-content">
                                      <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
                                          <view v-if="segment.type === 'text'" class="option-text-segment" v-html="segment.content"></view>
                                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
@@ -189,26 +85,22 @@
                             </view>
                         </template>
                         <template v-else>
-                             <!-- 如果没有选项数据，可以显示一个提示 -->
-                            <view class="unsupported-tip">
+                             <view class="unsupported-tip">
                                 <text>本选择题暂无选项数据</text>
                             </view>
                         </template>
                     </template>
-
-                    <template v-else-if="examStore.currentQuestion.type === 'fill' || examStore.currentQuestion.type === 'application'">
+                    <template v-else-if="question.type === 'fill' || question.type === 'application'">
                         <!-- 填空题和解答题的拍照上传功能 -->
                         <view class="upload-section">
                             <view class="upload-header">
                                 <text class="upload-title">拍照上传答案</text>
                                 <text class="upload-tip">最多上传3张图片</text>
                             </view>
-                            
-                            <!-- 已上传图片预览 -->
-                            <view class="image-preview-list" v-if="examStore.currentQuestionImages.length > 0">
+                            <view class="image-preview-list" v-if="examStore.uploadedImages[question.id] && examStore.uploadedImages[question.id].length > 0">
                                 <view 
                                     class="image-preview-item" 
-                                    v-for="(image, index) in examStore.currentQuestionImages" 
+                                    v-for="(image, index) in examStore.uploadedImages[question.id]" 
                                     :key="index"
                                 >
                                     <image 
@@ -218,18 +110,16 @@
                                         @click="previewImage(`data:image/jpeg;base64,${image.base64}`)"
                                     ></image>
                                     <view class="image-actions">
-                                        <view class="delete-btn" @click="deleteImage(index)">
+                                        <view class="delete-btn" @click.stop="deleteImage(index, question.id)">
                                             <uni-icons type="trash" size="20" color="#ff4d4f"></uni-icons>
                                         </view>
                                     </view>
                                 </view>
                             </view>
-
-                            <!-- 上传按钮 -->
                             <view 
                                 class="upload-btn" 
-                                v-if="examStore.currentQuestionImages.length < 3"
-                                @click="chooseAndUploadImage"
+                                v-if="!examStore.uploadedImages[question.id] || examStore.uploadedImages[question.id].length < 3"
+                                @click.stop="chooseAndUploadImage(question.id)"
                             >
                                 <uni-icons type="camera" size="24" color="#007aff"></uni-icons>
                                 <text>拍照上传</text>
@@ -237,46 +127,19 @@
                         </view>
                     </template>
                 </view>
-            </view>
-        </view>
+              </view>
+            </scroll-view>
+          </swiper-item>
+        </swiper>
+      </view>
 
-        <!-- 添加导航按钮区域 -->
-        <view class="navigation-buttons">
-            <!-- 第一题：只显示下一题按钮 -->
-            <template v-if="examStore.currentQuestionIndex === 0">
-                <view class="single-button-container">
-                    <button class="nav-button next-button" @click="handleNextQuestion">
-                        下一题
-                    </button>
-                </view>
-            </template>
-            
-            <!-- 最后一题：显示上一题和答题卡按钮 -->
-            <template v-else-if="examStore.currentQuestionIndex === examStore.totalQuestions - 1">
-                <view class="dual-button-container">
-                    <button class="nav-button prev-button" @click="handlePrevQuestion">
-                        上一题
-                    </button>
-                    <button class="nav-button card-button" @click="examStore.toggleQuestionCard">
-                        答题卡
-                    </button>
-                </view>
-            </template>
-            
-            <!-- 中间题目：显示上一题和下一题按钮 -->
-            <template v-else>
-                <view class="dual-button-container">
-                    <button class="nav-button prev-button" @click="handlePrevQuestion">
-                        上一题
-                    </button>
-                    <button class="nav-button next-button" @click="handleNextQuestion">
-                        下一题
-                    </button>
-                </view>
-            </template>
+      <!-- 导航按钮 -->
+      <view class="navigation-buttons">
+        <view class="dual-button-container">
+          <button class="nav-button prev-button" @click="currentIndex > 0 && (currentIndex--, examStore.currentQuestionIndex = currentIndex)">上一题</button>
+          <button class="nav-button next-button" @click="currentIndex < questions.length - 1 && (currentIndex++, examStore.currentQuestionIndex = currentIndex)">下一题</button>
         </view>
-
-    </view>
+      </view>
 
     <!-- 答题卡覆盖层 -->
     <view class="question-card-overlay" :class="{'show': examStore.showQuestionCard}" @click="examStore.toggleQuestionCard">
@@ -294,7 +157,7 @@
                  v-for="(question, qIndex) in type.questions" 
                  :key="qIndex"
                  :class="{'answered': question.answered}"
-                 @click="examStore.goToQuestion(question.index)"
+                 @click="goToQuestion(question.index)"
                  >
                 {{ question.number }}
               </view>
@@ -319,47 +182,74 @@ import { useExamStore } from '@/stores/exam';
 
 // 获取考试 store
 const examStore = useExamStore();
+const questions = computed(() => examStore.questions);
+const currentIndex = ref(0);
+const loading = ref(true);
+
+// swiper 切换事件
+const onSwiperChange = (e) => {
+  currentIndex.value = e.detail.current;
+  examStore.currentQuestionIndex = currentIndex.value;
+};
+
+// 答题卡切题
+const goToQuestion = (index) => {
+  if (index >= 0 && index < questions.value.length) {
+    currentIndex.value = index;
+    examStore.currentQuestionIndex = index;
+    examStore.showQuestionCard = false;
+  }
+};
 
 // 新增 pushId 状态
 const currentPushId = ref(null);
 
-// 获取胶囊按钮位置信息和状态栏高度
+// 头部高度相关
 const menuButtonHeight = ref(0);
 const menuButtonTop = ref(0);
+const statusBarHeight = ref(0);
 // #ifdef MP-WEIXIN
-const systemInfo = wx.getWindowInfo();
-const statusBarHeight = systemInfo.statusBarHeight;
+const systemInfo = uni.getSystemInfoSync();
+statusBarHeight.value = systemInfo.statusBarHeight;
+const menuButtonInfo = uni.getMenuButtonBoundingClientRect();
+menuButtonHeight.value = menuButtonInfo.height;
+menuButtonTop.value = menuButtonInfo.top;
 // #endif
 // #ifdef H5
-const statusBarHeight = 0;
+const h5HeaderHeight = 44;
+menuButtonTop.value = 0;
+menuButtonHeight.value = h5HeaderHeight;
 // #endif
-
-// 判断是否是小程序环境
-const isMiniProgram = ref(false);
-// #ifdef MP-WEIXIN
-isMiniProgram.value = true;
-// #endif
-
-// 计算头部总高度 (仅返回按钮部分)
 const headerHeight = computed(() => {
   // #ifdef MP-WEIXIN
   return menuButtonTop.value + menuButtonHeight.value + 'px';
   // #endif
   // #ifdef H5
-  return (statusBarHeight + 44) + 'px';
+  return (statusBarHeight.value + h5HeaderHeight) + 'px';
   // #endif
-  return '0px';
+  return '64px';
 });
 
-// 计算内容区域的顶部内边距 (考虑头部高度)
-const containerPaddingTop = computed(() => {
-   // #ifdef MP-WEIXIN
-  return menuButtonTop.value + menuButtonHeight.value + 'px';
-  // #endif
-  // #ifdef H5
-  return (statusBarHeight + 44) + 'px';
-  // #endif
-  return '0px';
+// content-header高度
+const contentHeaderRef = ref(null);
+const contentHeaderHeight = ref(60);
+const getContentHeaderHeight = () => {
+  nextTick(() => {
+    setTimeout(() => {
+      uni.createSelectorQuery().select('.content-header').boundingClientRect(rect => {
+        if (rect && rect.height) {
+          contentHeaderHeight.value = rect.height;
+        } else {
+          contentHeaderHeight.value = 60;
+        }
+      }).exec();
+    }, 200);
+  });
+};
+
+const swiperHeight = computed(() => {
+  // 120px为底部按钮区高度
+  return `calc(100vh - ${headerHeight.value} - ${contentHeaderHeight.value}px - 120px)`;
 });
 
 // 用于控制过渡动画方向的变量 (仅用于非小程序平台)
@@ -545,33 +435,10 @@ const handleTouchEnd = () => {
 };
 
 // 获取 content-header 的高度
-const contentHeaderRef = ref(null);
-const contentHeaderHeight = ref(80); 
 
-const getContentHeaderHeight = () => {
-    // #ifdef MP-WEIXIN || H5 || APP-VUE
-    nextTick(() => {
-        // 使用更长的延迟，确保 DOM 稳定
-        setTimeout(() => {
-             uni.createSelectorQuery().select('.content-header').boundingClientRect(rect => {
-                if (rect && rect.height) {
-                    contentHeaderHeight.value = rect.height;
-                     console.log('contentHeaderHeight:', contentHeaderHeight.value);
-                } else {
-                    console.warn('Failed to get .content-header height. Using default.');
-                    // 提供一个默认值以防获取失败
-                    contentHeaderHeight.value = 100; // 调整为一个合理的默认值
-                }
-            }).exec();
-        }, 200); // 增加延迟到 200ms
-    });
-    // #endif
-    // #ifndef MP-WEIXIN || H5 || APP-VUE
-     console.warn('当前平台获取元素高度的方法未实现，请手动调整样式或实现对应平台的元素高度获取。');
-     // 提供一个默认值以防获取失败
-     contentHeaderHeight.value = 100; // 调整为一个合理的默认值
-    // #endif
-};
+
+
+
 
 // 返回上一页
 const goBack = () => {
@@ -609,14 +476,13 @@ const goBack = () => {
 };
 
 // 选择并上传图片
-const chooseAndUploadImage = async () => {
+const chooseAndUploadImage = async (questionId) => {
     try {
         const res = await uni.chooseImage({
             count: 1,
             sizeType: ['compressed'],
             sourceType: ['camera', 'album']
         });
-
         if (res.tempFilePaths && res.tempFilePaths.length > 0) {
             const success = await examStore.uploadImage(res.tempFilePaths[0]);
             if (success) {
@@ -705,13 +571,13 @@ const previewImage = (clickedImageUrl) => {
 };
 
 // 删除图片
-const deleteImage = (index) => {
+const deleteImage = (index, questionId) => {
     uni.showModal({
         title: '确认删除',
         content: '确定要删除这张图片吗？',
         success: (res) => {
             if (res.confirm) {
-                examStore.removeImage(examStore.currentQuestion.id, index);
+                examStore.removeImage(questionId, index);
                 uni.showToast({
                     title: '删除成功',
                     icon: 'success'
@@ -768,8 +634,10 @@ onUnmounted(() => {
   examStore.stopTimer();
 });
 
-onLoad((options) => {
+onLoad(async (options) => {
+  examStore.currentQuestionIndex = 0; // 每次进入页面都重置为第一题
   console.log('answering: Page onLoad', options);
+  loading.value = true;
   if (options && options.sourceId) {
     const sourceId = options.sourceId;
     currentPushId.value = options.pushId || null; // 获取 pushId
@@ -783,15 +651,9 @@ onLoad((options) => {
     // 添加错误处理
     try {
       // loadQuestions 会更新 examStore.questions，从而触发 watch 监听
-      examStore.loadQuestions(sourceId, currentPushId.value).catch(error => {
-        console.error('加载题目失败:', error);
-        uni.showToast({
-          title: '加载题目失败',
-          icon: 'none'
-        });
-      });
+      await examStore.loadQuestions(sourceId, currentPushId.value);
     } catch (error) {
-      console.error('加载题目时发生错误:', error);
+      console.error('加载题目失败:', error);
       uni.showToast({
         title: '加载题目失败',
         icon: 'none'
@@ -804,14 +666,15 @@ onLoad((options) => {
       icon: 'none'
     });
   }
+  loading.value = false;
 });
 
 // Add a watcher to see when questions in the store changes
-watch(() => examStore.questions, (newValue, oldValue) => {
+watch(() => examStore.questions, (newValue) => {
     console.log('answering: examStore.questions changed. Total questions:', newValue.length);
     // When questions load, reset current question index to 0 to show the first question
     if (newValue && newValue.length > 0) {
-        examStore.currentQuestionIndex = 0;
+        currentIndex.value = examStore.currentQuestionIndex;
         // 在 questions 更新后重新计算 content-header 的高度
         getContentHeaderHeight();
     }
@@ -829,12 +692,13 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 <style lang="scss">
 /* 页面容器 */
 .exam-answering-container {
-  padding: 0 20rpx 20rpx 20rpx;
-  background: linear-gradient(135deg, #f8f8ff 0%, #e0e7ff 100%);
+  height: 100vh;
   min-height: 100vh;
-  box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  padding: 0;
+  box-sizing: border-box;
+  background: linear-gradient(135deg, #f8f8ff 0%, #e0e7ff 100%);
 }
 
 /* 自定义头部 */
@@ -881,15 +745,14 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 
 /* 题目内容区域容器 */
 .question-content-wrapper {
-    flex: 1; /* Restore flex */
-    margin-top: 0;
-    padding-bottom: 20rpx;
-    
-    position: relative; /* Restore position */
-    overflow: hidden; /* Restore overflow */
-     min-height: 0;
-     display: flex;
-     flex-direction: column;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin-top: 0;
+  padding-bottom: 0;
+  position: relative;
+  overflow: hidden;
 }
 
 /* 内容头部（包含试卷名称和图标行）*/
@@ -953,8 +816,15 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     padding-top: 0;
 }
 
+.questions-swiper, .swiper-item, .question-scroll {
+  height: 100%;
+  width: 100%;
+}
 .question-main {
-    padding: 0 20rpx;
+  height: 100%;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 20rpx;
 }
 
 .question-text {
@@ -1465,4 +1335,37 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   cursor: pointer;
 }
 
+/* 加载状态样式 */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  z-index: 1000;
+}
+
+.loading-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  margin-top: 20rpx;
+  font-size: 32rpx;
+  color: #666;
+}
 </style> 

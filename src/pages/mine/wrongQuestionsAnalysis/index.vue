@@ -8,7 +8,7 @@
         </view>
       </view>
       <view class="center-section">
-        <text class="header-title">我的错题</text>
+        <text class="header-title">错题分析</text>
       </view>
       <view class="right-section"></view>
     </view>
@@ -17,15 +17,21 @@
       <image src="/static/images/empty.png" mode="widthFix" class="empty-image" />
       <text class="empty-text">暂无错题</text>
     </view>
-    <view v-else class="question-content-wrapper"
-      @touchstart="handleTouchStart"
-      @touchmove="handleTouchMove"
-      @touchend="handleTouchEnd"
-    >
-      <view class="content-header">
-        <view class="paper-title-in-content">错题分析</view>
+    <view v-else class="question-content-wrapper" :style="{ marginTop: headerHeight }">
+      <view class="content-header" ref="contentHeaderRef" style="position: static;">
+        <!-- <view class="paper-title-in-content">错题分析</view> -->
         <view class="content-header-icons">
-          <text class="question-counter">{{ currentQuestionIndex + 1 }} / {{ questions.length }}</text>
+          <text class="question-counter">
+            <text class="current-index">{{ currentIndex + 1 }}</text> / {{ questions.length }}
+          </text>
+          <!-- 收藏图标 -->
+          <uni-icons
+            :type="examStore.favoritedQuestionIds.has(currentQuestion?.qaId) ? 'star-filled' : 'star'"
+            size="24"
+            :color="examStore.favoritedQuestionIds.has(currentQuestion?.qaId) ? '#ffb300' : '#333'"
+            class="header-icon"
+            @click="examStore.toggleFavorite(currentQuestion?.qaId)"
+          ></uni-icons>
           <image
             src="/static/images/datika.png"
             class="header-icon datika-icon"
@@ -33,134 +39,157 @@
             mode="widthFix"
           />
         </view>
+        <view class="header-divider"></view>
       </view>
-
-      <transition :name="'slide-' + transitionDirection">
-        <scroll-view
-          class="question-content"
-          scroll-y
-          :key="currentQuestion.idx"
-          :style="{ top: contentHeaderHeight + 'px' }"
+      <swiper
+        class="questions-swiper"
+        :style="{ height: swiperHeight }"
+        :current="currentIndex"
+        @change="onSwiperChange"
+        :duration="300"
+      >
+        <swiper-item
+          v-for="(question, qIndex) in questions"
+          :key="question.idx"
+          class="swiper-item"
         >
-          <view class="question-main">
-            <view class="question-score-info">
-              <text v-if="currentQuestion.score !== undefined">本题分值：{{ currentQuestion.score }}分</text>
-              <text v-if="currentQuestion.value !== undefined">你的得分：{{ currentQuestion.value }}分</text>
-            </view>
-            <view class="question-stem-content">
-              <template v-for="(segment, index) in currentQuestion.textSegments" :key="index">
-                <text v-if="segment.type === 'text'" v-html="segment.content"></text>
-                <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
-                <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image" @click="previewImage(segment.url)" />
-              </template>
-            </view>
+          <scroll-view class="question-scroll" scroll-y="true" style="height: 100%; width: 100%;">
+            <view class="question-main">
+              <view class="question-score-info">
+                <text class="score-label left" v-if="currentQuestion.score !== undefined && currentQuestion.score !== null">
+                  本题分值：{{ currentQuestion.score }}分
+                </text>
+                <text class="score-label right" v-if="currentQuestion.value !== undefined && currentQuestion.value !== null">
+                  你的得分：
+                  <text :style="
+                    currentQuestion.value === 0
+                      ? 'color: #F44336;'
+                      : (currentQuestion.value === currentQuestion.score
+                          ? 'color: #4CAF50;'
+                          : 'color:rgb(238, 167, 44);')
+                  ">
+                    {{ currentQuestion.value }}
+                  </text>分
+                </text>
+              </view>
+              <view class="question-stem-content">
+                <template v-for="(segment, index) in question.textSegments" :key="index">
+                  <text v-if="segment.type === 'text'" v-html="segment.content"></text>
+                  <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
+                  <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image" @click="previewImage(segment.url)" />
+                </template>
+              </view>
 
-            <!-- 选择题选项 -->
-            <view v-if="currentQuestion.type === 1 && currentQuestion.options.length > 0" class="answer-area">
-              <view
-                class="choice-item"
-                v-for="(option, optionIndex) in currentQuestion.options"
-                :key="optionIndex"
-                :class="{'selected': isOptionSelected(option.value)}"
-              >
-                <text class="option-label">{{ option.label }}</text>
-                <view class="option-text-content">
-                  <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
-                    <text v-if="segment.type === 'text'" v-html="segment.content"></text>
-                    <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
-                    <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image" @click="previewImage(segment.url)" />
-                  </template>
+              <!-- 选择题选项 -->
+              <view v-if="question.type === 1 && question.options.length > 0" class="answer-area">
+                <view
+                  class="choice-item"
+                  v-for="(option, optionIndex) in question.options"
+                  :key="optionIndex"
+                  :class="{'selected': isOptionSelected(option.value)}"
+                >
+                  <text class="option-label">{{ option.label }}</text>
+                  <view class="option-text-content">
+                    <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
+                      <text v-if="segment.type === 'text'" v-html="segment.content"></text>
+                      <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
+                      <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image" @click="previewImage(segment.url)" />
+                    </template>
+                  </view>
                 </view>
               </view>
-            </view>
-            <view v-else-if="currentQuestion.type === 1 && currentQuestion.options.length === 0" class="unsupported-tip">
-              <text>本选择题暂无选项数据</text>
-            </view>
-
-            <!-- 填空题/解答题答案 -->
-            <view v-if="currentQuestion.type === 2 || currentQuestion.type === 3" class="answer-area">
-              <view class="student-answer">
-                <text class="answer-label">你的答案:</text>
-                <template v-if="currentQuestion.imageUrls && currentQuestion.imageUrls.length">
-                  <view class="image-preview-list">
-                    <view class="image-preview-item" v-for="(imageUrl, index) in currentQuestion.imageUrls" :key="index">
-                      <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(imageUrl)" />
-                    </view>
-                  </view>
-                </template>
-                <template v-else-if="currentQuestion.stuAnswer">
-                  <text>{{ currentQuestion.stuAnswer }}</text>
-                </template>
-                <text v-else>未作答</text>
+              <view v-else-if="question.type === 1 && question.options.length === 0" class="unsupported-tip">
+                <text>本选择题暂无选项数据</text>
               </view>
-              <!-- 教师评语（填空题/解答题专属，放在你的答案下方） -->
-              <view class="teacher-comment-section" v-if="currentQuestion.teacherComment">
+
+              <!-- 填空题/解答题答案 -->
+              <view v-if="question.type === 2 || question.type === 3" class="answer-area">
+                <view class="student-answer">
+                  <text class="answer-label">你的答案:</text>
+                  <template v-if="question.imageUrls && question.imageUrls.length">
+                    <view class="image-preview-list">
+                      <view class="image-preview-item" v-for="(imageUrl, index) in question.imageUrls" :key="index">
+                        <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(imageUrl)" />
+                      </view>
+                    </view>
+                  </template>
+                  <template v-else-if="question.stuAnswer">
+                    <text>{{ question.stuAnswer }}</text>
+                  </template>
+                  <text v-else>未作答</text>
+                </view>
+                <!-- 教师评语（填空题/解答题专属，放在你的答案下方） -->
+                <view class="teacher-comment-section" v-if="question.teacherComment">
+                  <text class="comment-label">教师评语:</text>
+                  <view class="comment-content-text">
+                    <text>{{ question.teacherComment }}</text>
+                  </view>
+                </view>
+              </view>
+
+              <!-- 教师评语（选择题专属，放在正确答案上方、解析下方） -->
+              <view v-if="question.type === 1 && question.teacherComment" class="teacher-comment-section">
                 <text class="comment-label">教师评语:</text>
                 <view class="comment-content-text">
-                  <text>{{ currentQuestion.teacherComment }}</text>
+                  <text>{{ question.teacherComment }}</text>
                 </view>
               </view>
-            </view>
 
-            <!-- 教师评语（选择题专属，放在正确答案上方、解析下方） -->
-            <view v-if="currentQuestion.type === 1 && currentQuestion.teacherComment" class="teacher-comment-section">
-              <text class="comment-label">教师评语:</text>
-              <view class="comment-content-text">
-                <text>{{ currentQuestion.teacherComment }}</text>
+              <!-- 相似题目按钮 -->
+              <view class="question-actions-row">
+                <button 
+                  class="answer-button" 
+                  :class="{ 'answered': showAnswers[qIndex] }"
+                  @click="toggleAnswer(qIndex)"
+                >
+                  {{ showAnswers[qIndex] ? getAnswerButtonText(question, true) : getAnswerButtonText(question, false) }}
+                </button>
+                <button class="similar-questions-btn" @click="goToSimilarQuestions">
+                  <uni-icons type="lightbulb" size="20" color="#007aff"></uni-icons>
+                  <text class="similar-btn-text">查找相似题目</text>
+                </button>
               </view>
-            </view>
 
-            <!-- 相似题目按钮 -->
-            <view class="question-actions-row">
-              <button 
-                class="answer-button" 
-                :class="{ 'answered': showAnswer }"
-                @click="toggleAnswer"
-              >
-                {{ getAnswerButtonText() }}
-              </button>
-              <button class="similar-questions-btn" @click="goToSimilarQuestions">
-                <uni-icons type="lightbulb" size="20" color="#007aff"></uni-icons>
-                <text class="similar-btn-text">查找相似题目</text>
-              </button>
-            </view>
-
-            <!-- 答案详情 -->
-            <view v-if="showAnswer" class="answer-detail">
-              <!-- 选择题正确答案 -->
-              <view v-if="currentQuestion.type === 1 && currentQuestion.correctAnswer" class="answer-section">
-                <text class="section-label">正确答案:</text>
-                <view class="answer-content">
-                  <view class="answer-text choice-answer">
-                    {{ currentQuestion.correctAnswer }}
+              <!-- 答案详情 -->
+              <view v-show="showAnswers[qIndex]" class="answer-detail">
+                <!-- 选择题正确答案 -->
+                <view v-if="question.type === 1 && question.correctAnswer" class="answer-section">
+                  <text class="section-label">正确答案:</text>
+                  <view class="answer-content">
+                    <view class="answer-text choice-answer">
+                      {{ question.correctAnswer }}
+                    </view>
                   </view>
                 </view>
-              </view>
 
-              <!-- 解析 -->
-              <view class="analysis-section">
-                <text class="section-label">解析:</text>
-                <view class="analysis-content">
-                  <template v-for="(segment, index) in currentQuestion.analysisSegments" :key="index">
-                    <text v-if="segment.type === 'text'" v-html="segment.content"></text>
-                    <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
-                    <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)" />
-                  </template>
-                  <text v-if="!currentQuestion.analysisSegments || currentQuestion.analysisSegments.length === 0">暂无解析</text>
+                <!-- 解析 -->
+                <view class="analysis-section">
+                  <text class="section-label">解析:</text>
+                  <view class="analysis-content">
+                    <template v-for="(segment, index) in question.analysisSegments" :key="index">
+                      <text v-if="segment.type === 'text'" v-html="segment.content"></text>
+                      <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode" />
+                      <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)" />
+                    </template>
+                    <text v-if="!question.analysisSegments || question.analysisSegments.length === 0">暂无解析</text>
+                  </view>
+                </view>
+                <!-- 视频展示区域（仅在解析展开时显示） -->
+                <view v-if="question.videoUrl" class="question-video-section" style="margin-top: 20rpx;">
+                  <text style="color: #333; font-weight: bold; font-size: 32rpx; display: block; margin-bottom: 10rpx;">视频讲解：</text>
+                  <video :src="question.videoUrl" controls style="width: 100%;"></video>
                 </view>
               </view>
+
+              
             </view>
-
-            
-          </view>
-        </scroll-view>
-      </transition>
-
-      <!-- 导航按钮 -->
+          </scroll-view>
+        </swiper-item>
+      </swiper>
       <view class="navigation-buttons">
         <view class="dual-button-container">
-          <button class="nav-button prev-button" @click="handlePrevQuestion">上一题</button>
-          <button class="nav-button next-button" @click="handleNextQuestion">下一题</button>
+          <button class="nav-button prev-button" @click="handlePrevQuestion" :disabled="currentIndex === 0">上一题</button>
+          <button class="nav-button next-button" @click="handleNextQuestion" :disabled="currentIndex === questions.length - 1">下一题</button>
         </view>
       </view>
     </view>
@@ -178,7 +207,7 @@
               class="question-number-item"
               v-for="(q, idx) in questions"
               :key="q.idx"
-              :class="{'current': idx === currentQuestionIndex}"
+              :class="{'current': idx === currentIndex}"
               @click="goToQuestion(idx); toggleQuestionCard()"
             >
               {{ idx + 1 }}
@@ -193,17 +222,18 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { getWrongQuestionDetails, getWrongQuestionsByKnowledgePoint } from '@/api/exam';
+import { getWrongQuestionDetails, getWrongQuestionsByKnowledgePoint, getVideoPreSignedUrls } from '@/api/exam';
 import { parseMathText } from '@/stores/exam';
 import { getImageFromMinio } from '@/api/exam';
 import MathJax from '@/components/MathJax.vue';
+import { useExamStore } from '@/stores/exam';
 
+const examStore = useExamStore();
 const questions = ref([]);
-const currentQuestionIndex = ref(0);
+const currentIndex = ref(0);
 const showQuestionCard = ref(false);
-const showAnswer = ref(false);
+const showAnswers = ref([]);
 const transitionDirection = ref('left');
-const contentHeaderHeight = ref(60);
 const menuButtonHeight = ref(0);
 const menuButtonTop = ref(0);
 const statusBarHeight = ref(0);
@@ -233,7 +263,7 @@ const headerHeight = computed(() => {
   return '64px';
 });
 
-const currentQuestion = computed(() => questions.value[currentQuestionIndex.value] || {});
+const currentQuestion = computed(() => questions.value[currentIndex.value] || {});
 
 // --- 滑动切换题目相关 ---
 const touchStartX = ref(0);
@@ -317,16 +347,16 @@ const goToSimilarQuestions = () => {
 };
 
 // 切换答案显示状态
-const toggleAnswer = () => {
-  showAnswer.value = !showAnswer.value;
+const toggleAnswer = (idx) => {
+  showAnswers.value[idx] = !showAnswers.value[idx];
 };
 
 // 获取按钮文本
-const getAnswerButtonText = () => {
-  if (currentQuestion.value.type === 1) {
-    return showAnswer.value ? '隐藏正确答案' : '查看正确答案';
+const getAnswerButtonText = (question, show = false) => {
+  if (question.type === 1) {
+    return show ? '隐藏正确答案' : '查看正确答案';
   } else {
-    return showAnswer.value ? '隐藏解析' : '查看解析';
+    return show ? '隐藏解析' : '查看解析';
   }
 };
 
@@ -336,25 +366,20 @@ const toggleQuestionCard = () => {
 
 const goToQuestion = (idx) => {
   if (idx >= 0 && idx < questions.value.length) {
-    transitionDirection.value = idx > currentQuestionIndex.value ? 'left' : 'right';
-    currentQuestionIndex.value = idx;
-    showAnswer.value = false; // 切换题目时隐藏答案
+    transitionDirection.value = idx > currentIndex.value ? 'left' : 'right';
+    currentIndex.value = idx;
+    showAnswers.value[currentIndex.value] = false; // 切换题目时隐藏答案
   }
 };
 
+const onSwiperChange = (e) => {
+  currentIndex.value = e.detail.current;
+};
 const handlePrevQuestion = () => {
-  if (currentQuestionIndex.value > 0) {
-    transitionDirection.value = 'right';
-    currentQuestionIndex.value--;
-    showAnswer.value = false; // 切换题目时隐藏答案
-  }
+  if (currentIndex.value > 0) currentIndex.value--;
 };
 const handleNextQuestion = () => {
-  if (currentQuestionIndex.value < questions.value.length - 1) {
-    transitionDirection.value = 'left';
-    currentQuestionIndex.value++;
-    showAnswer.value = false; // 切换题目时隐藏答案
-  }
+  if (currentIndex.value < questions.value.length - 1) currentIndex.value++;
 };
 
 const isOptionSelected = (value) => {
@@ -423,8 +448,36 @@ async function processImageUrls(imageUrls) {
   return arr;
 }
 
+const contentHeaderRef = ref(null);
+const contentHeaderHeight = ref(60);
+const swiperHeight = computed(() => {
+  // 120px为底部按钮区高度，可根据实际调整
+  return `calc(100vh - ${headerHeight.value} - ${contentHeaderHeight.value}px - 120px)`;
+});
+function getContentHeaderHeight() {
+  nextTick(() => {
+    setTimeout(() => {
+      uni.createSelectorQuery().select('.content-header').boundingClientRect(rect => {
+        if (rect && rect.height) {
+          contentHeaderHeight.value = rect.height;
+        } else {
+          contentHeaderHeight.value = 60;
+        }
+      }).exec();
+    }, 200);
+  });
+}
+onMounted(() => {
+  getContentHeaderHeight();
+});
+
 onLoad(async (options) => {
-  const { studentId, startTime, endTime, knowledgePointId } = options;
+  // 解码参数，确保传给 API 的是未编码字符串
+  const studentId = options.studentId ? decodeURIComponent(options.studentId) : '';
+  const startTime = options.startTime ? decodeURIComponent(options.startTime) : '';
+  const endTime = options.endTime ? decodeURIComponent(options.endTime) : '';
+  const knowledgePointId = options.knowledgePointId ? decodeURIComponent(options.knowledgePointId) : '';
+
   if (!studentId || !startTime || !endTime) return;
   console.log('[错题分析] knowledgePointId:', knowledgePointId, 'startTime:', startTime, 'endTime:', endTime);
   uni.showLoading({ title: '加载中...' });
@@ -441,7 +494,27 @@ onLoad(async (options) => {
   if (res.flag === '1' && res.result) {
     const imageUrlMap = res.result.imageUrlMap || {};
     const details = res.result.wrongQuestionDetails || [];
-    console.log('[错题分析] 解析后题目数量:', details.length);
+    // 1. 收集所有videoId
+    const allVideoIds = [];
+    for (const item of details) {
+      const { detailRecord, questionChoice, questionBlank, questionApplication } = item;
+      let type = detailRecord.questionsType;
+      let question = null;
+      if (type === 1) question = questionChoice;
+      if (type === 2) question = questionBlank;
+      if (type === 3) question = questionApplication;
+      if (!question) continue;
+      if (question.videoId) allVideoIds.push(question.videoId);
+    }
+    const uniqueVideoIds = [...new Set(allVideoIds)];
+    // 2. 批量请求视频URL
+    let videoUrlMap = {};
+    if (uniqueVideoIds.length > 0) {
+      const videoRes = await getVideoPreSignedUrls(uniqueVideoIds);
+      if (videoRes.flag === '1' && videoRes.result) {
+        videoUrlMap = videoRes.result;
+      }
+    }
     // 分类
     const choice = [], blank = [], application = [];
     let idx = 1;
@@ -475,6 +548,12 @@ onLoad(async (options) => {
       }
       // 解析
       const analysisSegments = await parseMathText(detailRecord.analysis || '', imageUrlMap);
+      // 视频处理
+      const videoId = question.videoId;
+      let videoUrl = null;
+      if (videoId && videoUrlMap[videoId] && videoUrlMap[videoId].preSignedUrl) {
+        videoUrl = import.meta.env.VITE_VIDEO_BASE_URL + videoUrlMap[videoId].preSignedUrl;
+      }
       // 组装
       const q = {
         idx: idx++,
@@ -490,19 +569,22 @@ onLoad(async (options) => {
         teacherComment: detailRecord.teacherComment,
         correctAnswer: question.correctAnswer,
         qaId: question.qaId || question.qbId || question.qcId || null,
+        videoId,
+        videoUrl,
       };
       if (type === 1) choice.push(q);
       if (type === 2) blank.push(q);
       if (type === 3) application.push(q);
     }
     questions.value = [...choice, ...blank, ...application];
+    showAnswers.value = new Array(questions.value.length).fill(false);
     console.log('[错题分析] 最终渲染题目数量:', questions.value.length);
   }
   uni.hideLoading();
 });
 </script>
 
-<style>
+<style scoped>
 .wrong-analysis-container {
   min-height: 100vh;
   background: linear-gradient(135deg, #f8f8ff 0%, #e0e7ff 100%);
@@ -563,18 +645,10 @@ onLoad(async (options) => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding-top: 60px;
+  /* 移除 padding-top: 60px; */
 }
 .content-header {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding-bottom: 20rpx;
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  z-index: 10;
+  position: static;
 }
 .paper-title-in-content {
   font-size: 36rpx;
@@ -584,11 +658,19 @@ onLoad(async (options) => {
   margin-bottom: 20rpx;
 }
 .content-header-icons {
+  margin: 10rpx;
+  padding: 10rpx;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 20rpx;
+  gap: 40rpx;
   z-index: 1;
+}
+.header-divider {
+  width: 100%;
+  height: 2rpx;
+  background: #e0e0e0;
+  margin: 10rpx 0 0 0;
 }
 .question-counter {
   font-size: 28rpx;
@@ -596,6 +678,11 @@ onLoad(async (options) => {
   line-height: 1;
   display: flex;
   align-items: center;
+}
+.current-index {
+  color: #0057b7;
+  font-weight: bold;
+  font-size: 32rpx;
 }
 .header-icon {
   cursor: pointer;
@@ -612,17 +699,15 @@ onLoad(async (options) => {
   cursor: pointer;
   margin-right: 16px;
 }
-.question-content {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 138rpx;
-  top: 0;
-  overflow-y: auto;
+.questions-swiper, .swiper-item, .question-scroll {
+  height: 100%;
   width: 100%;
-  will-change: transform;
-  padding: 0 20rpx;
+}
+.question-scroll {
+  height: 100%;
+  width: 100%;
   box-sizing: border-box;
+  padding: 0 20rpx;
 }
 .question-main {
   padding: 20rpx;
@@ -633,14 +718,26 @@ onLoad(async (options) => {
   overflow: hidden;
 }
 .question-score-info {
-  margin-bottom: 20rpx;
   display: flex;
-  justify-content: flex-start;
-  gap: 40rpx;
-  //padding-left: 20rpx;
-  font-size: 28rpx;
-  color: #666;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+  padding: 0 0rpx;
+}
+.score-label.left {
+  text-align: left;
+  flex: 1;
+  color: #333;
+  font-size: 32rpx;
   font-weight: bold;
+}
+.score-label.right {
+  text-align: right;
+  flex: 1;
+  color: #333;
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-right: 40rpx;
 }
 .question-stem-content,
 .option-text-content,
@@ -856,7 +953,7 @@ onLoad(async (options) => {
 }
 
 .section-label {
-  font-size: 28rpx;
+  font-size: 32rpx;
   font-weight: bold;
   color: #333;
   display: block;

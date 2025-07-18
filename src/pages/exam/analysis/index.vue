@@ -8,7 +8,7 @@
         </view>
       </view>
       <view class="center-section">
-        <text class="header-title">我的试卷</text>
+        <text class="header-title">题目解析</text>
       </view>
       <view class="right-section"></view> <!-- Right placeholder -->
     </view>
@@ -16,23 +16,23 @@
     <!-- 题目内容区域容器，添加触摸事件监听 -->
     <view
         class="question-content-wrapper"
-        @touchstart="handleTouchStart"
-        @touchmove="handleTouchMove"
-        @touchend="handleTouchEnd"
-        >
+        :style="{ marginTop: headerHeight }"
+    >
         <!-- 将试卷名称和右侧元素放在这里，在返回按钮下方 -->
-        <view class="content-header">
+        <view class="content-header" ref="contentHeaderRef" style="position: static;">
             <!-- <view class="paper-title-in-content">{{ examStore.paperTitle }}</view> --> <!-- 试卷名称 -->
-            <view class="paper-title-in-content">题目解析</view>
+            <!-- <view class="paper-title-in-content">题目解析</view> -->
              <view class="content-header-icons">
-                <text class="question-counter">{{ examStore.currentQuestionIndex + 1 }} / {{ examStore.totalQuestions }}</text> <!-- 题目标号和总数 -->
+                <text class="question-counter">
+                  <text class="current-index">{{ currentIndex + 1 }}</text> / {{ examStore.totalQuestions }}
+                </text> <!-- 题目标号和总数 -->
                 <!-- 收藏图标 -->
                 <uni-icons
-                  :type="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? 'star-filled' : 'star'"
+                  :type="examStore.favoritedQuestionIds.has(currentQuestion?.id) ? 'star-filled' : 'star'"
                   size="24"
-                  :color="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? '#ffb300' : '#333'"
+                  :color="examStore.favoritedQuestionIds.has(currentQuestion?.id) ? '#ffb300' : '#333'"
                   class="header-icon"
-                  @click="examStore.toggleFavorite(examStore.currentQuestion.id)"
+                  @click="examStore.toggleFavorite(currentQuestion?.id)"
                   >
                 </uni-icons>
                 <!-- 答题卡图标 (在解析页可能不需要答题卡，但保留结构) -->
@@ -43,207 +43,69 @@
                   mode="widthFix"
                 />
              </view>
+             <view class="header-divider"></view>
         </view>
 
         <!-- 题目内容区域（进行过渡动画的元素）-->
         <!-- Use transition component for non-mini-program platforms -->
         <!-- For mini-program, we'll use native animation -->
-        <transition :name="'slide-' + transitionDirection" v-if="!isMiniProgram">
-            <scroll-view
-                class="question-content"
-                scroll-y
-                :key="examStore.currentQuestion.id"
-                :style="{
-                    top: contentHeaderHeight + 'px'
-                }"
-                >
-              <!-- Here display question text and images -->
-                <view class="question-main">
-                    <view class="question-score-info">
-                        <text v-if="examStore.currentQuestion.questionScore !== undefined && examStore.currentQuestion.questionScore !== null">
-                            本题分值：{{ examStore.currentQuestion.questionScore }}分
-                        </text>
-                        <text v-if="examStore.currentQuestion.studentScore !== undefined && examStore.currentQuestion.studentScore !== null">
-                            你的得分：{{ examStore.currentQuestion.studentScore }}分
-                        </text>
-                    </view>
-                    <!-- Render question stem with MathJax component -->
-                    <view class="question-stem-content">
-                         <!-- Iterate through text segments -->
-                         <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
-                             <text v-if="segment.type === 'text'" v-html="segment.content"></text>
-                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image" @click="previewImage(segment.url)"></image>
-                         </template>
-                    </view>
-                    <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(examStore.currentQuestion.image)"></image>
-
-                    <!-- 答案区域 -->
-                    <view class="answer-area">
-                        <!-- Choice Questions Options -->
-                        <template v-if="examStore.currentQuestion.originalType === 1">
-                            <template v-if="examStore.currentQuestion && examStore.currentQuestion.options && examStore.currentQuestion.options.length > 0">
-                                <view
-                                    class="choice-item"
-                                    v-for="(option, optionIndex) in examStore.currentQuestion.options"
-                                    :key="optionIndex"
-                                    :class="{'selected': examStore.currentQuestion.stuAnswer && examStore.currentQuestion.stuAnswer.includes(option.value)}"
-                                    >
-                                    <text class="option-label">{{ option.label }}</text>
-                                     <!-- Render option text with MathJax component -->
-                                    <view class="option-text-content">
-                                        <!-- Iterate through option text segments -->
-                                         <template v-for="(segment, segmentIndex) in option.segments" :key="segmentIndex">
-                                             <text v-if="segment.type === 'text'" v-html="segment.content"></text>
-                                             <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                             <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="option-content-image" @click="previewImage(segment.url)"></image>
-                                         </template>
-                                    </view>
-                                </view>
-                            </template>
-                             <template v-else>
-                                 <view class="unsupported-tip">
-                                     <text>本选择题暂无选项数据</text>
-                                 </view>
-                             </template>
-                        </template>
-
-                        <!-- 填空题和解答题的已上传图片或文本答案（只保留一份你的答案/教师评语，按钮和v-if包裹正确答案+解析） -->
-                        <template v-else-if="examStore.currentQuestion.originalType === 2 || examStore.currentQuestion.originalType === 3">
-                            <view class="student-answer">
-                                <text class="answer-label">你的答案:</text>
-                                <template v-if="examStore.currentQuestion.imageUrls">
-                                    <view class="image-preview-list">
-                                        <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(examStore.currentQuestion.imageUrls) ? examStore.currentQuestion.imageUrls : [examStore.currentQuestion.imageUrls])" :key="index">
-                                            <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(imageUrl)"></image>
-                                        </view>
-                                    </view>
-                                </template>
-                                <template v-else-if="examStore.currentQuestion.stuAnswer">
-                                    <text>{{ examStore.currentQuestion.stuAnswer }}</text>
-                                </template>
-                                <text v-else>未作答</text>
-                            </view>
-                            <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
-                                <text class="comment-label">教师评语:</text>
-                                <view class="comment-content-text">
-                                    <text>{{ examStore.currentQuestion.teacherComment }}</text>
-                                </view>
-                            </view>
-                            <view class="answer-toggle-btn-container">
-                                <button class="answer-toggle-btn"
-                                  :class="{'answered': showDetailArr[examStore.currentQuestionIndex]}"
-                                  @click="toggleShowDetail(examStore.currentQuestionIndex)">
-                                  {{ showDetailArr[examStore.currentQuestionIndex] ? (examStore.currentQuestion.originalType === 1 ? '隐藏解析' : '隐藏正确答案') : (examStore.currentQuestion.originalType === 1 ? '查看解析' : '查看正确答案') }}
-                                </button>
-                            </view>
-                            <view v-if="showDetailArr[examStore.currentQuestionIndex]">
-                                <view class="correct-solution-section">
-                                    <text class="solution-label">正确答案:</text>
-                                    <view class="solution-content-text">
-                                        <template v-if="examStore.currentQuestion.correctAnswerSegments && examStore.currentQuestion.correctAnswerSegments.length > 0">
-                                            <template v-for="(segment, index) in examStore.currentQuestion.correctAnswerSegments" :key="index">
-                                                <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                                <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                                <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image" @click="previewImage(segment.url)"></image>
-                                            </template>
-                                        </template>
-                                        <text v-else>暂无答案</text>
-                                    </view>
-                                </view>
-                                <view class="analysis-content-text">
-                                    <text class="analysis-label">解析:</text>
-                                    <view class="analysis-text">
-                                        <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
-                                            <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                            <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                            <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
-                                        </template>
-                                        <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
-                                    </view>
-                                </view>
-                            </view>
-                        </template>
-                    </view>
-
-                    <!-- 解析信息 -->
-                    <view class="analysis-section" v-if="examStore.currentQuestion.originalType === 1">
-                        <view class="answer-status">
-                            <text>正确答案是: <text class="correct-answer-text">{{ examStore.currentQuestion.correctAnswer || '无' }}</text></text>
-                            <text>你的答案是: <text :class="{'incorrect-answer-text': examStore.currentQuestion.status === 'incorrect', 'correct-answer-text': examStore.currentQuestion.status === 'correct'}">{{ examStore.currentQuestion.stuAnswer || '未作答' }}</text></text>
-                            <text>{{ examStore.currentQuestion.status === 'correct' ? '回答正确' : (examStore.currentQuestion.status === 'incorrect' ? '回答错误' : '') }}</text>
-                        </view>
-                        <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
-                            <text class="comment-label">教师评语:</text>
-                            <view class="comment-content-text">
-                                <text>{{ examStore.currentQuestion.teacherComment }}</text>
-                            </view>
-                        </view>
-                        <view class="answer-toggle-btn-container">
-                            <button class="answer-toggle-btn"
-                              :class="{'answered': showDetailArr[examStore.currentQuestionIndex]}"
-                              @click="toggleShowDetail(examStore.currentQuestionIndex)">
-                              {{ showDetailArr[examStore.currentQuestionIndex] ? (examStore.currentQuestion.originalType === 1 ? '隐藏解析' : '隐藏正确答案') : (examStore.currentQuestion.originalType === 1 ? '查看解析' : '查看正确答案') }}
-                            </button>
-                        </view>
-                        <view v-if="showDetailArr[examStore.currentQuestionIndex]">
-                            <view class="analysis-content-text">
-                                <text class="analysis-label">解析:</text>
-                                <view class="analysis-text">
-                                    <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
-                                        <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                        <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                        <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
-                                    </template>
-                                    <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
-                                </view>
-                            </view>
-                        </view>
-                    </view>
-                </view>
-            </scroll-view>
-        </transition>
-
-         <!-- Content for mini-program using native animation -->
-        <scroll-view
-            v-if="isMiniProgram"
-            class="question-content"
-            scroll-y
-            :style="{
-                top: contentHeaderHeight + 'px'
-            }"
-            :animation="animationData"
-            >
-            <view class="question-main">
-                 <view class="question-score-info">
-                    <text v-if="examStore.currentQuestion.questionScore !== undefined && examStore.currentQuestion.questionScore !== null">
-                        本题分值：{{ examStore.currentQuestion.questionScore }}分
+        <swiper
+          v-if="examStore.questions && examStore.questions.length > 0"
+          class="questions-swiper"
+          :style="{ height: swiperHeight }"
+          :current="currentIndex"
+          @change="onSwiperChange"
+          :duration="300"
+        >
+          <swiper-item
+            v-for="(question, qIndex) in examStore.questions"
+            :key="question?.id || qIndex"
+            class="swiper-item"
+          >
+            <scroll-view class="question-scroll" scroll-y="true" :show-scrollbar="false" style="height: 100%; width: 100%;">
+              <view class="question-main">
+                <!-- 题目内容渲染逻辑，使用question/qIndex替换examStore.currentQuestion/examStore.currentQuestionIndex -->
+                <view class="question-score-info">
+                    <text class="score-label left" v-if="question.questionScore !== undefined && question.questionScore !== null">
+                        本题分值：{{ question.questionScore }}分
                     </text>
-                    <text v-if="examStore.currentQuestion.studentScore !== undefined && examStore.currentQuestion.studentScore !== null">
-                        你的得分：{{ examStore.currentQuestion.studentScore }}分
+                    <text 
+                      class="score-label right" 
+                      v-if="question.studentScore !== undefined && question.studentScore !== null"
+                    >
+                      你的得分：
+                      <text :style="
+                        question.studentScore === 0
+                          ? 'color: #F44336;'
+                          : (question.studentScore === question.questionScore
+                              ? 'color: #4CAF50;'
+                              : 'color:rgb(238, 167, 44);')
+                      ">
+                        {{ question.studentScore }}
+                      </text>分
                     </text>
                 </view>
                 <!-- Render question stem with MathJax component -->
                 <view class="question-stem-content">
                      <!-- Iterate through text segments -->
-                     <template v-for="(segment, index) in examStore.currentQuestion.textSegments" :key="index">
-                         <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                     <template v-for="(segment, index) in question.textSegments" :key="index">
+                         <text v-if="segment.type === 'text'" v-html="segment.content"></text>
                          <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                          <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="question-content-image" @click="previewImage(segment.url)"></image>
                      </template>
                 </view>
-                <image v-if="examStore.currentQuestion.image" :src="examStore.currentQuestion.image" mode="widthFix" class="question-image" @click="previewImage(examStore.currentQuestion.image)"></image>
+                <image v-if="question.image" :src="question.image" mode="widthFix" class="question-image" @click="previewImage(question.image)"></image>
 
                 <!-- 答案区域 -->
                 <view class="answer-area">
                     <!-- Choice Questions Options -->
-                    <template v-if="examStore.currentQuestion.originalType === 1">
-                        <template v-if="examStore.currentQuestion && examStore.currentQuestion.options && examStore.currentQuestion.options.length > 0">
+                    <template v-if="question.originalType === 1">
+                        <template v-if="question && question.options && question.options.length > 0">
                             <view
                                 class="choice-item"
-                                v-for="(option, optionIndex) in examStore.currentQuestion.options"
+                                v-for="(option, optionIndex) in question.options"
                                 :key="optionIndex"
-                                :class="{'selected': examStore.currentQuestion.stuAnswer && examStore.currentQuestion.stuAnswer.includes(option.value)}"
+                                :class="{'selected': question.stuAnswer && question.stuAnswer.includes(option.value)}"
                                 >
                                 <text class="option-label">{{ option.label }}</text>
                                  <!-- Render option text with MathJax component -->
@@ -257,164 +119,127 @@
                                 </view>
                             </view>
                         </template>
-                        <template v-else>
+                         <template v-else>
                              <view class="unsupported-tip">
                                  <text>本选择题暂无选项数据</text>
                              </view>
-                        </template>
+                         </template>
                     </template>
 
-                    <!-- 填空题和解答题的已上传图片或文本答案 -->
-                    <template v-else-if="examStore.currentQuestion.originalType === 2 || examStore.currentQuestion.originalType === 3">
-                         <view class="student-answer">
+                    <!-- 填空题和解答题的已上传图片或文本答案（只保留一份你的答案/教师评语，按钮和v-if包裹正确答案+解析） -->
+                    <template v-else-if="question.originalType === 2 || question.originalType === 3">
+                        <view class="student-answer">
                             <text class="answer-label">你的答案:</text>
-                            <template v-if="examStore.currentQuestion.imageUrls">
-                                 <view class="image-preview-list">
-                                    <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(examStore.currentQuestion.imageUrls) ? examStore.currentQuestion.imageUrls : [examStore.currentQuestion.imageUrls])" :key="index">
+                            <template v-if="question.imageUrls">
+                                <view class="image-preview-list">
+                                    <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(question.imageUrls) ? question.imageUrls : [question.imageUrls])" :key="index">
                                         <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(imageUrl)"></image>
                                      </view>
                                  </view>
                             </template>
-                            <template v-else-if="examStore.currentQuestion.stuAnswer">
-                                <text>{{ examStore.currentQuestion.stuAnswer }}</text>
+                            <template v-else-if="question.stuAnswer">
+                                <text>{{ question.stuAnswer }}</text>
                             </template>
                             <text v-else>未作答</text>
-                         </view>
-
-                         <!-- 教师评语 -->
-                         <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
-                             <text class="comment-label">教师评语:</text>
-                             <view class="comment-content-text">
-                                 <text>{{ examStore.currentQuestion.teacherComment }}</text>
-                             </view>
-                         </view>
-
-                         <!-- 正确答案（仅解答题）-->
-                         <view class="correct-solution-section" v-if="examStore.currentQuestion.originalType === 2 || examStore.currentQuestion.originalType === 3">
-                             <text class="solution-label">正确答案:</text>
-                             <view class="solution-content-text">
-                                 <template v-if="examStore.currentQuestion.correctAnswerSegments && examStore.currentQuestion.correctAnswerSegments.length > 0">
-                                     <template v-for="(segment, index) in examStore.currentQuestion.correctAnswerSegments" :key="index">
-                                         <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                         <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                         <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image" @click="previewImage(segment.url)"></image>
-                                     </template>
-                                 </template>
-                                 <text v-else>暂无答案</text>
-                             </view>
-                         </view>
+                        </view>
+                        <view class="teacher-comment-section" v-if="question.teacherComment">
+                            <text class="comment-label">教师评语:</text>
+                            <view class="comment-content-text">
+                                <text>{{ question.teacherComment }}</text>
+                            </view>
+                        </view>
+                        <view class="answer-toggle-btn-container">
+                            <button class="answer-toggle-btn"
+                              :class="{'answered': showDetailArr[qIndex]}"
+                              @click="toggleShowDetail(qIndex)">
+                              {{ showDetailArr[qIndex] ? (question.originalType === 1 ? '隐藏解析' : '隐藏正确答案') : (question.originalType === 1 ? '查看解析' : '查看正确答案') }}
+                            </button>
+                        </view>
+                        <view v-if="showDetailArr[qIndex]">
+                            <view class="correct-solution-section">
+                                <text class="solution-label">正确答案:</text>
+                                <view class="solution-content-text">
+                                    <template v-if="question.correctAnswerSegments && question.correctAnswerSegments.length > 0">
+                                        <template v-for="(segment, index) in question.correctAnswerSegments" :key="index">
+                                            <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                            <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                            <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image" @click="previewImage(segment.url)"></image>
+                                        </template>
+                                    </template>
+                                    <text v-else>暂无答案</text>
+                                </view>
+                            </view>
+                            <view class="analysis-content-text">
+                                <text class="analysis-label" style="font-size:38rpx; font-weight: bold;">解析:</text>
+                                <view class="analysis-text">
+                                    <template v-for="(segment, index) in question.analysisSegments" :key="index">
+                                        <text v-if="segment.type === 'text'">{{ segment.content }}</text>
+                                        <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
+                                        <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
+                                    </template>
+                                    <text v-if="!question.analysisSegments || question.analysisSegments.length === 0">暂无解析</text>
+                                </view>
+                            </view>
+                            <!-- 视频展示区域（仅在解析展开时显示） -->
+                            <view v-if="question.videoUrl" class="question-video-section" style="margin-top: 20rpx;">
+                              <text style="color: #333; font-weight: bold; font-size: 38rpx; margin-top: 80rpx; display: block; margin-bottom: 10rpx;">视频讲解：</text>
+                              <video :src="question.videoUrl" controls style="width: 100%;"></video>
+                            </view>
+                        </view>
                     </template>
                 </view>
 
-                 <!-- 教师评语 (统一放在解析信息之前) -->
-                <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
-                    <text class="comment-label">教师评语:</text>
-                    <view class="comment-content-text">
-                        <text>{{ examStore.currentQuestion.teacherComment }}</text>
-                    </view>
-                </view>
-
-                 <!-- 解析信息 -->
-                <view class="analysis-section" v-if="examStore.currentQuestion.originalType === 1">
+                <!-- 解析信息 -->
+                <view class="analysis-section" v-if="question.originalType === 1">
                     <view class="answer-status">
-                        <text>正确答案是: <text class="correct-answer-text">{{ examStore.currentQuestion.correctAnswer || '无' }}</text></text>
-                        <text>你的答案是: <text :class="{'incorrect-answer-text': examStore.currentQuestion.status === 'incorrect', 'correct-answer-text': examStore.currentQuestion.status === 'correct'}">{{ examStore.currentQuestion.stuAnswer || '未作答' }}</text></text>
-                        <text>{{ examStore.currentQuestion.status === 'correct' ? '回答正确' : (examStore.currentQuestion.status === 'incorrect' ? '回答错误' : '') }}</text>
+                        <text>正确答案是: <text class="correct-answer-text">{{ question.correctAnswer || '无' }}</text></text>
+                        <text>你的答案是: <text :class="{'incorrect-answer-text': question.status === 'incorrect', 'correct-answer-text': question.status === 'correct'}">{{ question.stuAnswer || '未作答' }}</text></text>
+                        <text>{{ question.status === 'correct' ? '回答正确' : (question.status === 'incorrect' ? '回答错误' : '') }}</text>
                     </view>
-                    <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
+                    <view class="teacher-comment-section" v-if="question.teacherComment">
                         <text class="comment-label">教师评语:</text>
                         <view class="comment-content-text">
-                            <text>{{ examStore.currentQuestion.teacherComment }}</text>
+                            <text>{{ question.teacherComment }}</text>
                         </view>
                     </view>
                     <view class="answer-toggle-btn-container">
                         <button class="answer-toggle-btn"
-                          :class="{'answered': showDetailArr[examStore.currentQuestionIndex]}"
-                          @click="toggleShowDetail(examStore.currentQuestionIndex)">
-                          {{ showDetailArr[examStore.currentQuestionIndex] ? (examStore.currentQuestion.originalType === 1 ? '隐藏解析' : '隐藏正确答案') : (examStore.currentQuestion.originalType === 1 ? '查看解析' : '查看正确答案') }}
+                          :class="{'answered': showDetailArr[qIndex]}"
+                          @click="toggleShowDetail(qIndex)">
+                          {{ showDetailArr[qIndex] ? (question.originalType === 1 ? '隐藏解析' : '隐藏正确答案') : (question.originalType === 1 ? '查看解析' : '查看正确答案') }}
                         </button>
                     </view>
-                    <view v-if="showDetailArr[examStore.currentQuestionIndex]">
+                    <view v-if="showDetailArr[qIndex]">
                         <view class="analysis-content-text">
                             <text class="analysis-label">解析:</text>
                             <view class="analysis-text">
-                                <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
+                                <template v-for="(segment, index) in question.analysisSegments" :key="index">
                                     <text v-if="segment.type === 'text'">{{ segment.content }}</text>
                                     <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
                                     <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
                                 </template>
-                                <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
+                                <text v-if="!question.analysisSegments || question.analysisSegments.length === 0">暂无解析</text>
                             </view>
+                        </view>
+                        <!-- 视频展示区域（仅在解析展开时显示） -->
+                        <view v-if="question.videoUrl" class="question-video-section" style="margin-top: 20rpx;">
+                          <text style="color: #333; font-weight: bold; font-size: 38rpx; margin-top: 80rpx; display: block; margin-bottom: 10rpx;">视频讲解：</text>
+                          <video :src="question.videoUrl" controls style="width: 100%;"></video>
                         </view>
                     </view>
                 </view>
-
-                <!-- 填空题和解答题 正确答案和解析部分 -->
-                <template v-else-if="examStore.currentQuestion.originalType === 2 || examStore.currentQuestion.originalType === 3">
-                    <view class="student-answer">
-                        <text class="answer-label">你的答案:</text>
-                        <template v-if="examStore.currentQuestion.imageUrls">
-                            <view class="image-preview-list">
-                                <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(examStore.currentQuestion.imageUrls) ? examStore.currentQuestion.imageUrls : [examStore.currentQuestion.imageUrls])" :key="index">
-                                    <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(imageUrl)"></image>
-                                </view>
-                            </view>
-                        </template>
-                        <template v-else-if="examStore.currentQuestion.stuAnswer">
-                            <text>{{ examStore.currentQuestion.stuAnswer }}</text>
-                        </template>
-                        <text v-else>未作答</text>
-                    </view>
-                    <view class="teacher-comment-section" v-if="examStore.currentQuestion.teacherComment">
-                        <text class="comment-label">教师评语:</text>
-                        <view class="comment-content-text">
-                            <text>{{ examStore.currentQuestion.teacherComment }}</text>
-                        </view>
-                    </view>
-                    <view class="answer-toggle-btn-container">
-                        <button class="answer-toggle-btn"
-                          :class="{'answered': showDetailArr[examStore.currentQuestionIndex]}"
-                          @click="toggleShowDetail(examStore.currentQuestionIndex)">
-                          {{ showDetailArr[examStore.currentQuestionIndex] ? (examStore.currentQuestion.originalType === 1 ? '隐藏解析' : '隐藏正确答案') : (examStore.currentQuestion.originalType === 1 ? '查看解析' : '查看正确答案') }}
-                        </button>
-                    </view>
-                    <view v-if="showDetailArr[examStore.currentQuestionIndex]">
-                        <view class="correct-solution-section">
-                            <text class="solution-label">正确答案:</text>
-                            <view class="solution-content-text">
-                                <template v-if="examStore.currentQuestion.correctAnswerSegments && examStore.currentQuestion.correctAnswerSegments.length > 0">
-                                    <template v-for="(segment, index) in examStore.currentQuestion.correctAnswerSegments" :key="index">
-                                        <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                        <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                        <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="solution-content-image" @click="previewImage(segment.url)"></image>
-                                    </template>
-                                </template>
-                                <text v-else>暂无答案</text>
-                            </view>
-                        </view>
-                        <view class="analysis-content-text">
-                            <text class="analysis-label">解析:</text>
-                            <view class="analysis-text">
-                                <template v-for="(segment, index) in examStore.currentQuestion.analysisSegments" :key="index">
-                                    <text v-if="segment.type === 'text'">{{ segment.content }}</text>
-                                    <MathJax v-else-if="segment.type === 'formula'" :formula="segment.content" :displayMode="segment.displayMode"></MathJax>
-                                    <image v-else-if="segment.type === 'image'" :src="segment.url" mode="widthFix" class="analysis-content-image" @click="previewImage(segment.url)"></image>
-                                </template>
-                                <text v-if="!examStore.currentQuestion.analysisSegments || examStore.currentQuestion.analysisSegments.length === 0">暂无解析</text>
-                            </view>
-                        </view>
-                    </view>
-                </template>
-            </view>
-        </scroll-view>
+              </view>
+            </scroll-view>
+          </swiper-item>
+        </swiper>
 
         <!-- 添加导航按钮区域 -->
         <view class="navigation-buttons">
             <view class="dual-button-container">
-                <button class="nav-button prev-button" @click="handlePrevQuestion">
+                <button class="nav-button prev-button" @click="handlePrevQuestion" :disabled="currentIndex === 0">
                     上一题
                 </button>
-                <button class="nav-button next-button" @click="handleNextQuestion">
+                <button class="nav-button next-button" @click="handleNextQuestion" :disabled="currentIndex === examStore.questions.length - 1">
                     下一题
                 </button>
             </view>
@@ -438,7 +263,7 @@
                  v-for="(question, qIndex) in type.questions"
                  :key="qIndex"
                  :class="{'correct': question.status === 'correct', 'incorrect': question.status === 'incorrect', 'unanswered': question.status === 'unanswered'}"
-                 @click="examStore.goToQuestion(question.originalIndex); toggleQuestionCard()"
+                 @click="goToQuestion(question.originalIndex)"
                  >
                 {{ question.number }}
               </view>
@@ -515,196 +340,6 @@ const containerPaddingTop = computed(() => {
   return '0px';
 });
 
-// 用于控制过渡动画方向的变量 (仅用于非小程序平台)
-const transitionDirection = ref('left');
-
-// 小程序原生动画相关变量
-const animationData = ref({});
-let animation = null;
-let isAnimating = false;
-
-// 初始化小程序动画实例
-const initMPAnimation = () => {
-    // #ifdef MP-WEIXIN
-    animation = uni.createAnimation({
-        duration: 250,
-        timingFunction: 'ease',
-        delay: 0,
-        transformOrigin: '50% 50%'
-    });
-    // #endif
-};
-
-// 运行小程序动画
-const runMPAnimation = (direction) => {
-    // #ifdef MP-WEIXIN
-    if (!animation || isAnimating) {
-        if(isAnimating) console.log('正在动画中，忽略本次触发');
-        return;
-    }
-
-    isAnimating = true;
-
-    const nextIndex = direction === 'left' ? examStore.currentQuestionIndex + 1 : examStore.currentQuestionIndex - 1;
-
-    if (nextIndex >= 0 && nextIndex < examStore.totalQuestions) {
-         const moveDistance = direction === 'left' ? '-100%' : '100%';
-
-        animation.translateX(moveDistance).step();
-        animationData.value = animation.export();
-
-        setTimeout(() => {
-            // Update question index after animation
-             if (direction === 'left') {
-                 examStore.nextQuestion();
-            } else {
-                 examStore.prevQuestion();
-            }
-            // Reset position instantly before next question is rendered
-            animation.translateX(direction === 'left' ? '100%' : '-100%').step({ duration: 0 });
-            animationData.value = animation.export();
-
-            nextTick(() => {
-                // Animate back to original position
-                animation.translateX(0).step();
-                animationData.value = animation.export();
-                isAnimating = false;
-            });
-        }, 250); // Match animation duration
-    } else {
-        isAnimating = false; // Reset flag if no navigation occurs
-    }
-    // #endif
-};
-
-// 触摸/滑动检测相关的变量
-const touchStartX = ref(0);
-const touchEndX = ref(0);
-const touchStartY = ref(0);
-const touchEndY = ref(0);
-const touchThreshold = 50;
-
-const handleTouchStart = (event) => {
-  const target = event.target || event.currentTarget;
-
-  // Check if the touch started within the content header area
-  // If so, we should not initiate swipe tracking, allowing click events on header icons
-  // We need to check if any parent element of the target is .content-header
-  let isInsideHeader = false;
-  let currentElement = target;
-  while (currentElement) {
-    // #ifdef H5 || APP-VUE
-    if (currentElement.classList && currentElement.classList.contains('content-header')) {
-      isInsideHeader = true;
-      break;
-    }
-    // #endif
-    // #ifdef MP-WEIXIN
-    const className = currentElement.className || '';
-    if (typeof className === 'string' && className.includes('content-header')) {
-        isInsideHeader = true;
-        break;
-    }
-    // #endif
-    currentElement = currentElement.parentElement;
-  }
-
-  // Allow clicks on header icons even if inside content-header, by checking the target element specifically
-  const isHeaderIcon = target.classList && target.classList.contains('header-icon');
-
-  if (isInsideHeader && !isHeaderIcon) { // Only return if inside header but NOT the header icon
-    touchStartX.value = 0;
-    touchStartY.value = 0;
-    touchEndX.value = 0;
-    touchEndY.value = 0;
-    return;
-  }
-
-  // Prevent swipe if touch starts on interactive elements like options or upload buttons
-   const nonSwipeClasses = ['choice-item', 'option-label', 'option-text-content', 'upload-section', 'image-preview-item', 'upload-btn', 'delete-btn', 'answer-area', 'student-answer']; // Added answer-area and student-answer
-   let isInteractive = false;
-    currentElement = target;
-    while (currentElement) {
-        // #ifdef H5 || APP-VUE
-        if (currentElement.classList && nonSwipeClasses.some(cls => currentElement.classList.contains(cls))) {
-             isInteractive = true;
-             break;
-        }
-        // #endif
-        // #ifdef MP-WEIXIN
-        const className = currentElement.className || '';
-        if (typeof className === 'string' && nonSwipeClasses.some(cls => className.includes(cls))) {
-            isInteractive = true;
-            break;
-        }
-        // #endif
-        currentElement = currentElement.parentElement;
-    }
-
-    if (isInteractive) {
-         touchStartX.value = 0;
-         touchStartY.value = 0;
-         touchEndX.value = 0;
-         touchEndY.value = 0;
-         return;
-    }
-
-  touchStartX.value = event.touches[0].clientX;
-  touchStartY.value = event.touches[0].clientY;
-  touchEndX.value = touchStartX.value;
-  touchEndY.value = touchStartY.value;
-};
-
-const handleTouchMove = (event) => {
-   if (touchStartX.value !== 0 || touchStartY.value !== 0) {
-      touchEndX.value = event.touches[0].clientX;
-      touchEndY.value = event.touches[0].clientY;
-   }
-};
-
-const handleTouchEnd = () => {
-  if (touchStartX.value === 0 && touchStartY.value === 0) {
-    return;
-  }
-
-  const deltaX = touchEndX.value - touchStartX.value;
-  const deltaY = touchEndY.value - touchStartY.value;
-
-  // Check if it's primarily a horizontal swipe
-  if (Math.abs(deltaX) > touchThreshold && Math.abs(deltaX) > Math.abs(deltaY)) {
-    if (deltaX < 0) {
-      // 向左滑动，显示下一题
-      if (examStore.currentQuestionIndex < examStore.totalQuestions - 1) {
-        if (isMiniProgram.value) {
-          runMPAnimation('left');
-        } else {
-          transitionDirection.value = 'left';
-          examStore.nextQuestion();
-        }
-      } else {
-        console.log('已经是最后一题');
-      }
-    } else {
-      // 向右滑动，显示上一题
-      if (examStore.currentQuestionIndex > 0) {
-        if (isMiniProgram.value) {
-          runMPAnimation('right');
-        } else {
-          transitionDirection.value = 'right';
-          examStore.prevQuestion();
-        }
-      } else {
-        console.log('已经是第一题');
-      }
-    }
-  }
-
-  touchStartX.value = 0;
-  touchStartY.value = 0;
-  touchEndX.value = 0;
-  touchEndY.value = 0;
-};
-
 // 获取 content-header 的高度 (包含试卷名称和图标行)
 const contentHeaderRef = ref(null);
 const contentHeaderHeight = ref(0);
@@ -763,20 +398,56 @@ const goBack = () => {
 // 处理上一题按钮点击
 const handlePrevQuestion = () => {
     if (isMiniProgram.value) {
-        runMPAnimation('right');
+        // 小程序环境下的动画
+        const animation = uni.createAnimation({
+            duration: 250,
+            timingFunction: 'ease',
+            delay: 0,
+            transformOrigin: '50% 50%'
+        });
+        const nextIndex = examStore.currentQuestionIndex - 1;
+        if (nextIndex >= 0 && nextIndex < examStore.totalQuestions) {
+            animation.translateX('-100%').step();
+            setTimeout(() => {
+                examStore.prevQuestion();
+                animation.translateX('100%').step({ duration: 0 });
+                animation.translateX(0).step();
+            }, 250);
+        }
     } else {
-        transitionDirection.value = 'right';
-        examStore.prevQuestion();
+        // 非小程序环境下的动画
+        if (currentIndex.value > 0) {
+            currentIndex.value -= 1;
+            examStore.currentQuestionIndex = currentIndex.value;
+        }
     }
 };
 
 // 处理下一题按钮点击
 const handleNextQuestion = () => {
     if (isMiniProgram.value) {
-        runMPAnimation('left');
+        // 小程序环境下的动画
+        const animation = uni.createAnimation({
+            duration: 250,
+            timingFunction: 'ease',
+            delay: 0,
+            transformOrigin: '50% 50%'
+        });
+        const nextIndex = examStore.currentQuestionIndex + 1;
+        if (nextIndex >= 0 && nextIndex < examStore.totalQuestions) {
+            animation.translateX('100%').step();
+            setTimeout(() => {
+                examStore.nextQuestion();
+                animation.translateX('-100%').step({ duration: 0 });
+                animation.translateX(0).step();
+            }, 250);
+        }
     } else {
-        transitionDirection.value = 'left';
-        examStore.nextQuestion();
+        // 非小程序环境下的动画
+        if (currentIndex.value < examStore.questions.length - 1) {
+            currentIndex.value += 1;
+            examStore.currentQuestionIndex = currentIndex.value;
+        }
     }
 };
 
@@ -893,6 +564,34 @@ const toggleShowDetail = (index) => {
   showDetailArr.value[index] = !showDetailArr.value[index];
 };
 
+const currentIndex = ref(0);
+const currentQuestion = computed(() => examStore.questions[currentIndex.value] || {});
+watch(() => examStore.questions, (val) => {
+  if (val && val.length > 0 && currentIndex.value >= val.length) {
+    currentIndex.value = 0;
+    examStore.currentQuestionIndex = 0;
+  }
+});
+
+const onSwiperChange = (e) => {
+  currentIndex.value = e.detail.current;
+  examStore.currentQuestionIndex = currentIndex.value;
+};
+
+const swiperHeight = computed(() => {
+  // 120px为底部按钮区高度，可根据实际调整
+  return `calc(100vh - ${headerHeight.value} - ${contentHeaderHeight.value}px - 120px)`;
+});
+
+// 在setup中添加goToQuestion方法
+const goToQuestion = (index) => {
+  if (index >= 0 && index < examStore.questions.length) {
+    currentIndex.value = index;
+    examStore.currentQuestionIndex = index;
+    showQuestionCard.value = false;
+  }
+};
+
 onMounted(() => {
   // 获取胶囊按钮位置信息 (仅微信小程序需要，非必需用于解析页)
   // #ifdef MP-WEIXIN
@@ -903,9 +602,6 @@ onMounted(() => {
 
   // 获取 content-header 的高度 (用于内容区域定位)
   getContentHeaderHeight();
-
-  // 初始化小程序动画实例
-  initMPAnimation();
 });
 
 onLoad((options) => {
@@ -1032,14 +728,13 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    /* 添加 padding-top 为 content-header 留出空间 */
-     padding-top: v-bind(contentHeaderHeight + 'px');
+    // 移除 padding-top: v-bind(contentHeaderHeight + 'px');
 }
 
 /* 内容头部（包含试卷名称和图标行）*/
 .content-header {
     /* 使用 absolute 定位，使其悬浮在内容区域上方 */
-    position: absolute;
+    position: static;
     top: 0;
     left: 0;
     right: 0;
@@ -1062,11 +757,19 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 
 .content-header-icons {
     display: flex;
+    margin: 10rpx;
+    padding: 10rpx;
     align-items: center; /* Center items vertically */
     justify-content: flex-end; /* Align items to the right */
-    gap: 20rpx; /* Keep gap for spacing between items */
+    gap: 40rpx; /* 增大间距 */
     padding-right: 0; /* No need for extra padding here */
     z-index: 1; /* Ensure icons are above other elements in content-header */
+}
+.header-divider {
+  width: 100%;
+  height: 2rpx;
+  background: #e0e0e0;
+  margin: 10rpx 0 0 0;
 }
 
 .question-counter {
@@ -1092,16 +795,17 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 
 /* 题目内容区域（进行过渡动画的元素）*/
 .question-content {
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 138rpx; /* 确保上方有足够空间 */
-    top: 0; /* 相对 .question-content-wrapper 的顶部 */
-    overflow-y: auto;
+    position: static;
     width: 100%;
     will-change: transform;
     padding: 0 20rpx; /* 保持水平内边距 */
     box-sizing: border-box;
+    overflow-y: visible;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    height: auto;
 }
 
 .question-main {
@@ -1114,14 +818,27 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 }
 
 .question-score-info {
-    margin-bottom: 20rpx;
-    display: flex; /* 使用 flex 布局 */
-    justify-content: flex-start; /* 左对齐 */
-    gap: 40rpx; /* 增加两个文本之间的间距 */
-    //padding-left: 20rpx; /* 与题干左侧对齐 */
-    font-size: 28rpx; /* 调整字体大小 */
-    color: #666; /* 调整颜色 */
-    font-weight: bold; /* 加粗 */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+  padding: 0 0rpx;
+}
+.score-label.left {
+  text-align: left;
+  flex: 1;
+  color: #333;
+  font-size: 32rpx;
+  font-weight: bold;
+  /* 不要斜体，不要 margin-left */
+}
+.score-label.right {
+  text-align: right;
+  flex: 1;
+  color: #333;
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-right: 40rpx;
 }
 
 .question-score-info text {
@@ -1314,7 +1031,7 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     }
 
     .analysis-label {
-        font-size: 30rpx;
+        font-size: 38rpx;
         font-weight: bold;
         color: #333;
         margin-bottom: 10rpx;
@@ -1615,7 +1332,7 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 }
 
 .solution-label {
-    font-size: 30rpx;
+    font-size: 38rpx;
     font-weight: bold;
     color: #333;
     margin-bottom: 10rpx;
@@ -1709,4 +1426,14 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   margin-right: 16px;
 }
 
+.questions-swiper, .swiper-item, .question-scroll {
+  height: 100%;
+  width: 100%;
+}
+
+.current-index {
+  color: #0057b7;
+  font-weight: bold;
+  font-size: 32rpx;
+}
 </style> 
