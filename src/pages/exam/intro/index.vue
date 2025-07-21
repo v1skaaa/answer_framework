@@ -489,6 +489,10 @@ onMounted(() => {
     color: #333;
     margin-bottom: 30rpx; /* 增加标题下方与其他内容的间距 */
     text-align: center; /* 标题居中 */
+    /* 不要省略号，显示全部 */
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
 }
 
 .info-section {

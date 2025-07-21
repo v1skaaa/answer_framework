@@ -17,20 +17,23 @@
         <!-- 将试卷名称和右侧元素放在这里，在返回按钮下方 -->
         <!-- 添加 ref 引用 -->
         <view class="content-header" ref="contentHeaderRef">
-            <view class="paper-title-in-content">{{ examStore.paperTitle }}</view> <!-- 试卷名称 -->
-             <view class="content-header-icons">
-                <text class="question-counter">{{ examStore.currentQuestionIndex + 1 }} / {{ examStore.totalQuestions }}</text> <!-- 题目标号和总数 -->
-                <!-- 根据当前题目类型显示不同的收藏图标或占位符 -->
-                <uni-icons :type="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? 'star-filled' : 'star'" size="24" :color="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? '#ffb300' : '#333'" class="header-icon" @click="examStore.toggleFavorite(examStore.currentQuestion.id)"></uni-icons> <!-- 选择题收藏 -->
-                <!-- <view v-else class="header-icon-placeholder"></view> --> <!-- 其他题型占位符 -->
-                <image
-                  src="/static/images/datika.png"
-                  class="header-icon datika-icon"
-                  @click="examStore.toggleQuestionCard"
-                  mode="widthFix"
-                /> <!-- 答题卡 -->
-                <!-- <text class="countdown">{{ examStore.formattedTime }}</text> --> <!-- 倒计时 -->
+            <view class="content-header-row">
+                <text class="paper-title-in-content">{{ examStore.paperTitle }}</text>
+                <view class="content-header-icons">
+                    <text class="question-counter">
+                      <text class="current-question-number">{{ examStore.currentQuestionIndex + 1 }}</text>
+                      / {{ examStore.totalQuestions }}
+                    </text>
+                    <uni-icons :type="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? 'star-filled' : 'star'" size="24" :color="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? '#ffb300' : '#333'" class="header-icon" @click="examStore.toggleFavorite(examStore.currentQuestion.id)"></uni-icons>
+                    <image
+                        src="/static/images/datika.png"
+                        class="header-icon datika-icon"
+                        @click="examStore.toggleQuestionCard"
+                        mode="widthFix"
+                    />
+                </view>
             </view>
+            <view class="content-header-divider"></view>
         </view>
 
         <!-- Use transition component for non-mini-program platforms -->
@@ -764,25 +767,45 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
     width: 100%;
 }
 
+.content-header-row {
+
+  margin-top: 30rpx;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
 .paper-title-in-content {
-    font-size: 36rpx;
-    font-weight: bold;
-    color: #333;
-    text-align: center;
-    margin-bottom: 20rpx;
+  flex: 1;
+  min-width: 0;
+  font-size: 38rpx;
+  font-weight: bold;
+  color: #333;
+  text-align: left;
+  margin-bottom: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .content-header-icons {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 20rpx;
-    padding-right: 30rpx; /* Add padding to the right to shift icons left */
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 20rpx;
+  padding-right: 30rpx;
+  flex-shrink: 0;
 }
 
 .question-counter {
     font-size: 28rpx;
     color: #555;
+}
+
+.current-question-number {
+  color: #007aff;
+  font-weight: bold;
+  font-size: 38rpx;
 }
 
 .header-icon {
@@ -1367,5 +1390,14 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   margin-top: 20rpx;
   font-size: 32rpx;
   color: #666;
+}
+
+.content-header-divider {
+  width: 100%;
+  height: 1px;
+  background: #e5e6eb;
+  margin-top: 16rpx;
+  margin-bottom: 0;
+  border: none;
 }
 </style> 
