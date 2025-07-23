@@ -258,11 +258,16 @@ export const useExamStore = defineStore('exam', () => {
   // 方法
   const loadQuestions = async (sourceId, pushId = null) => {
     console.log('loadQuestions called with sourceId:', sourceId, 'and pushId:', pushId);
+    
+    // 重置状态，防止显示旧数据
+    questions.value = [];
+    currentQuestionIndex.value = 0;
+    uploadedImages.value = {};
+    favoritedQuestionIds.value = new Set();
+    
     if (!sourceId) {
       console.warn('No sourceId provided for loading questions.')
-      questions.value = []
       paperId.value = null;
-      uploadedImages.value = {};
       currentPushId.value = null;
       return
     }

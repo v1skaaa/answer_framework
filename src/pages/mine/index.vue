@@ -5,14 +5,10 @@
       <text class="username">{{ userInfo.nickname || userInfo.username }}</text>
     </view>
     <view class="stats-bar">
-      <view class="stats-item">
-        <text class="stats-label">练习记录</text>
-      </view>
-      <text class="stats-divider">|</text>
       <view class="stats-item" @click="navToWrongQuestions">
         <text class="stats-label">错题集</text>
       </view>
-      <text class="stats-divider">|</text>
+      <view class="stats-divider">|</view>
       <view class="stats-item">
         <text class="stats-label">收藏本</text>
       </view>
@@ -30,11 +26,13 @@
           <text class="menu-text">意见反馈</text>
           <text class="menu-arrow">></text>
         </view>
+        <!-- 注释掉消息通知
         <view class="menu-item" @click="navTo('/pages/mine/messages')">
           <view class="menu-icon"><uni-icons type="chatboxes" size="22" color="#28b68a"></uni-icons></view>
           <text class="menu-text">消息通知</text>
           <text class="menu-arrow">></text>
         </view>
+        -->
       </view>
     </view>
     <view class="menu-group">
@@ -228,7 +226,7 @@ const goToPersonalDetail = async () => {
   justify-content: center;
   font-size: 28rpx;
   color: #333;
-  padding: 0 65rpx;
+  width: 40%;
   height: 60rpx;
 }
 
@@ -243,6 +241,9 @@ const goToPersonalDetail = async () => {
   color: #ccc;
   display: flex;
   align-items: center;
+  height: 60rpx;
+  width: 10%;
+  justify-content: center;
 }
 
 .menu-group {

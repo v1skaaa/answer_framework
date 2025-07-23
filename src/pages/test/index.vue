@@ -1,6 +1,6 @@
 <template>
   <view class="test-container">
-    <view class="page-title">请选择</view>
+    <view class="page-title" style="opacity: 0;">请选择</view>
     <view class="test-list">
       <view 
         v-for="item in testStore.sortedPaperTypes" 

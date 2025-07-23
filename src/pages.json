@@ -153,12 +153,6 @@
 				"text": "首页"
 			},
 			{
-				"pagePath": "pages/exercise/index",
-				"iconPath": "static/images/xiti-grey.png",
-				"selectedIconPath": "static/images/xiti-active.png",
-				"text": "习题"
-			},
-			{
 				"pagePath": "pages/test/index",
 				"iconPath": "static/images/shijuan-grey.png",
 				"selectedIconPath": "static/images/shijuan-active.png",

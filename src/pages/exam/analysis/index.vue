@@ -8,9 +8,25 @@
         </view>
       </view>
       <view class="center-section">
-        <text class="header-title">题目解析</text>
+        <text class="question-counter" style="padding-left: 70rpx;">
+          <text class="current-index">{{ currentIndex + 1 }}</text> / {{ examStore.totalQuestions }}
+        </text>
       </view>
-      <view class="right-section"></view> <!-- Right placeholder -->
+      <view class="right-section">
+        <uni-icons
+          :type="examStore.favoritedQuestionIds.has(currentQuestion?.id) ? 'star-filled' : 'star'"
+          size="24"
+          :color="examStore.favoritedQuestionIds.has(currentQuestion?.id) ? '#ffb300' : '#333'"
+          class="header-icon"
+          @click="examStore.toggleFavorite(currentQuestion?.id)"
+        ></uni-icons>
+        <image
+          src="/static/images/datika.png"
+          class="header-icon datika-icon"
+          @click="toggleQuestionCard"
+          mode="widthFix"
+        />
+      </view>
     </view>
 
     <!-- 题目内容区域容器，添加触摸事件监听 -->
@@ -18,34 +34,8 @@
         class="question-content-wrapper"
         :style="{ marginTop: headerHeight }"
     >
-        <!-- 将试卷名称和右侧元素放在这里，在返回按钮下方 -->
-        <view class="content-header" ref="contentHeaderRef" style="position: static;">
-            <!-- <view class="paper-title-in-content">{{ examStore.paperTitle }}</view> --> <!-- 试卷名称 -->
-            <!-- <view class="paper-title-in-content">题目解析</view> -->
-             <view class="content-header-icons">
-                <text class="question-counter">
-                  <text class="current-index">{{ currentIndex + 1 }}</text> / {{ examStore.totalQuestions }}
-                </text> <!-- 题目标号和总数 -->
-                <!-- 收藏图标 -->
-                <uni-icons
-                  :type="examStore.favoritedQuestionIds.has(currentQuestion?.id) ? 'star-filled' : 'star'"
-                  size="24"
-                  :color="examStore.favoritedQuestionIds.has(currentQuestion?.id) ? '#ffb300' : '#333'"
-                  class="header-icon"
-                  @click="examStore.toggleFavorite(currentQuestion?.id)"
-                  >
-                </uni-icons>
-                <!-- 答题卡图标 (在解析页可能不需要答题卡，但保留结构) -->
-                <image
-                  src="/static/images/datika.png"
-                  class="header-icon datika-icon"
-                  @click="toggleQuestionCard"
-                  mode="widthFix"
-                />
-             </view>
-             <view class="header-divider"></view>
-        </view>
-
+        <!-- 去掉原来的content-header -->
+        
         <!-- 题目内容区域（进行过渡动画的元素）-->
         <!-- Use transition component for non-mini-program platforms -->
         <!-- For mini-program, we'll use native animation -->
@@ -304,12 +294,13 @@ const examStore = useExamStore();
 // 获取胶囊按钮位置信息和状态栏高度
 const menuButtonHeight = ref(0);
 const menuButtonTop = ref(0);
+const statusBarHeight = ref(0);
 // #ifdef MP-WEIXIN
 const systemInfo = wx.getWindowInfo();
-const statusBarHeight = systemInfo.statusBarHeight;
+statusBarHeight.value = systemInfo.statusBarHeight;
 // #endif
 // #ifdef H5
-const statusBarHeight = 0;
+statusBarHeight.value = 0;
 // #endif
 
 // 判断是否是小程序环境
@@ -324,7 +315,7 @@ const headerHeight = computed(() => {
   return menuButtonTop.value + menuButtonHeight.value + 'px';
   // #endif
   // #ifdef H5
-  return (statusBarHeight + 44) + 'px';
+  return (statusBarHeight.value + 44) + 'px';
   // #endif
   return '0px';
 });
@@ -335,7 +326,7 @@ const containerPaddingTop = computed(() => {
   return menuButtonTop.value + menuButtonHeight.value + 'px';
   // #endif
   // #ifdef H5
-  return (statusBarHeight + 44) + 'px';
+  return (statusBarHeight.value + 44) + 'px';
   // #endif
   return '0px';
 });
@@ -344,30 +335,31 @@ const containerPaddingTop = computed(() => {
 const contentHeaderRef = ref(null);
 const contentHeaderHeight = ref(0);
 
-const getContentHeaderHeight = () => {
-     // #ifdef MP-WEIXIN || H5 || APP-VUE
-     nextTick(() => {
-        // 使用更长的延迟，确保 DOM 稳定
-        setTimeout(() => {
-             uni.createSelectorQuery().select('.content-header').boundingClientRect(rect => {
-                if (rect && rect.height) {
-                    contentHeaderHeight.value = rect.height;
-                     console.log('analysis: contentHeaderHeight:', contentHeaderHeight.value);
-                } else {
-                    console.warn('analysis: Failed to get .content-header height. Using default.');
-                    // 提供一个默认值以防获取失败
-                    contentHeaderHeight.value = 60; // 调整为一个合理的默认值，比答题页的默认值小一些
-                }
-            }).exec();
-        }, 200); // 增加延迟
-    });
-    // #endif
-    // #ifndef MP-WEIXIN || H5 || APP-VUE
-     console.warn('analysis: 当前平台获取元素高度的方法未实现，请手动调整样式或实现对应平台的元素高度获取。');
-     // 提供一个默认值以防获取失败
-     contentHeaderHeight.value = 60; // 调整为一个合理的默认值
-    // #endif
-};
+// 不再需要获取content-header高度
+// const getContentHeaderHeight = () => {
+//      // #ifdef MP-WEIXIN || H5 || APP-VUE
+//      nextTick(() => {
+//         // 使用更长的延迟，确保 DOM 稳定
+//         setTimeout(() => {
+//              uni.createSelectorQuery().select('.content-header').boundingClientRect(rect => {
+//                 if (rect && rect.height) {
+//                     contentHeaderHeight.value = rect.height;
+//                      console.log('analysis: contentHeaderHeight:', contentHeaderHeight.value);
+//                 } else {
+//                     console.warn('analysis: Failed to get .content-header height. Using default.');
+//                     // 提供一个默认值以防获取失败
+//                     contentHeaderHeight.value = 60; // 调整为一个合理的默认值，比答题页的默认值小一些
+//                 }
+//             }).exec();
+//         }, 200); // 增加延迟
+//     });
+//     // #endif
+//     // #ifndef MP-WEIXIN || H5 || APP-VUE
+//      console.warn('analysis: 当前平台获取元素高度的方法未实现，请手动调整样式或实现对应平台的元素高度获取。');
+//      // 提供一个默认值以防获取失败
+//      contentHeaderHeight.value = 60; // 调整为一个合理的默认值
+//     // #endif
+// };
 
 // 返回上一页
 const goBack = () => {
@@ -580,7 +572,7 @@ const onSwiperChange = (e) => {
 
 const swiperHeight = computed(() => {
   // 120px为底部按钮区高度，可根据实际调整
-  return `calc(100vh - ${headerHeight.value} - ${contentHeaderHeight.value}px - 120px)`;
+  return `calc(100vh - ${headerHeight.value} - 120px)`;
 });
 
 // 在setup中添加goToQuestion方法
@@ -601,7 +593,7 @@ onMounted(() => {
   // #endif
 
   // 获取 content-header 的高度 (用于内容区域定位)
-  getContentHeaderHeight();
+  // getContentHeaderHeight(); // 移除此行
 });
 
 onLoad((options) => {
@@ -634,17 +626,17 @@ watch(() => examStore.questions, (newValue, oldValue) => {
     if (newValue && newValue.length > 0) {
         examStore.currentQuestionIndex = 0;
         // 在 questions 更新后重新计算 content-header 的高度
-        getContentHeaderHeight();
+        // getContentHeaderHeight(); // 移除此行
     } else if (newValue && newValue.length === 0) {
          // 如果没有题目，也重新计算高度，虽然此时 content-header 可能只有标题
-         getContentHeaderHeight();
+         // getContentHeaderHeight(); // 移除此行
     }
 }, { immediate: true }); // Immediate: true will fire the watcher immediately on component creation
 
 watch(() => examStore.paperTitle, (newValue, oldValue) => {
     console.log('analysis: examStore.paperTitle changed from', oldValue, 'to', newValue);
      // 当试卷标题变化时，也重新计算 content-header 的高度
-     getContentHeaderHeight();
+     // getContentHeaderHeight(); // 移除此行
 }, { immediate: true });
 
 // Need to expose store state and actions to the template
@@ -685,14 +677,17 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 .left-section {
     display: flex;
     align-items: center;
-     height: 100%;
+    height: 100%;
+    width: 80rpx; /* 稍微增加宽度 */
+    margin-left: 10rpx;
 }
 
 .center-section {
-  flex: 1;
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
+  height: 100%;
+  flex: 1; /* 占用剩余空间 */
 }
 
 .header-title {
@@ -701,12 +696,15 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   color: #333;
 }
 
-/* 右侧占位符样式 */
+/* 右侧区域样式 */
 .right-section {
     display: flex;
     align-items: center;
-     height: 100%;
-     width: 60rpx;
+    height: 100%;
+    gap: 35rpx; /* 增加图标间距 */
+    justify-content: flex-end;
+    width: 140rpx; /* 稍微增加宽度，使布局更平衡 */
+    margin-right: 10rpx;
 }
 
 .back-button {
@@ -775,16 +773,19 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 .question-counter {
     font-size: 28rpx;
     color: #555;
-    line-height: 1; /* Ensure line-height doesn't add extra space */
-    display: flex; /* Use flex to better control vertical alignment */
-    align-items: center; /* Vertically center text within its own flex container */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.current-index {
+  color: #0057b7;
+  font-weight: bold;
+  font-size: 32rpx;
 }
 
 .header-icon {
     cursor: pointer;
-    margin-left: 20rpx; /* Add margin to the left of the icon for spacing from counter */
-    display: flex; /* Use flex to better control vertical alignment */
-    align-items: center; /* Vertically center icon within its own flex container */
 }
 
 /* Assuming uni-icons might render content that needs vertical alignment */
@@ -1159,8 +1160,8 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 /* 答题卡覆盖层样式 */
 .question-card-overlay {
   position: fixed;
-  /* 将 top 设置为 headerHeight + contentHeaderHeight */
-  top: calc(v-bind(headerHeight) + v-bind(contentHeaderHeight)); /* Add both heights */
+  /* 更新计算方式，不再使用contentHeaderHeight */
+  top: calc(v-bind(headerHeight));
   left: 0;
   right: 0;
   bottom: 0; /* 延伸到屏幕底部 */
@@ -1423,7 +1424,6 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   display: inline-block;
   vertical-align: middle;
   cursor: pointer;
-  margin-right: 16px;
 }
 
 .questions-swiper, .swiper-item, .question-scroll {

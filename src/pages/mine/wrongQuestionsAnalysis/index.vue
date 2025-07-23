@@ -8,9 +8,26 @@
         </view>
       </view>
       <view class="center-section">
-        <text class="header-title">错题分析</text>
+        <text class="question-counter" style="padding-left: 70rpx;">
+          <text class="current-index">{{ currentIndex + 1 }}</text> / {{ questions.length }}
+        </text>
       </view>
-      <view class="right-section"></view>
+      <view class="right-section">
+        <!-- 收藏图标 -->
+        <uni-icons
+          :type="examStore.favoritedQuestionIds.has(currentQuestion?.qaId) ? 'star-filled' : 'star'"
+          size="24"
+          :color="examStore.favoritedQuestionIds.has(currentQuestion?.qaId) ? '#ffb300' : '#333'"
+          class="header-icon"
+          @click="examStore.toggleFavorite(currentQuestion?.qaId)"
+        ></uni-icons>
+        <image
+          src="/static/images/datika.png"
+          class="header-icon datika-icon"
+          @click="toggleQuestionCard"
+          mode="widthFix"
+        />
+      </view>
     </view>
 
     <view v-if="questions.length === 0" class="empty-state">
@@ -18,29 +35,8 @@
       <text class="empty-text">暂无错题</text>
     </view>
     <view v-else class="question-content-wrapper" :style="{ marginTop: headerHeight }">
-      <view class="content-header" ref="contentHeaderRef" style="position: static;">
-        <!-- <view class="paper-title-in-content">错题分析</view> -->
-        <view class="content-header-icons">
-          <text class="question-counter">
-            <text class="current-index">{{ currentIndex + 1 }}</text> / {{ questions.length }}
-          </text>
-          <!-- 收藏图标 -->
-          <uni-icons
-            :type="examStore.favoritedQuestionIds.has(currentQuestion?.qaId) ? 'star-filled' : 'star'"
-            size="24"
-            :color="examStore.favoritedQuestionIds.has(currentQuestion?.qaId) ? '#ffb300' : '#333'"
-            class="header-icon"
-            @click="examStore.toggleFavorite(currentQuestion?.qaId)"
-          ></uni-icons>
-          <image
-            src="/static/images/datika.png"
-            class="header-icon datika-icon"
-            @click="toggleQuestionCard"
-            mode="widthFix"
-          />
-        </view>
-        <view class="header-divider"></view>
-      </view>
+      <!-- 移除原来的content-header -->
+      
       <swiper
         class="questions-swiper"
         :style="{ height: swiperHeight }"
@@ -175,8 +171,8 @@
                   </view>
                 </view>
                 <!-- 视频展示区域（仅在解析展开时显示） -->
-                <view v-if="question.videoUrl" class="question-video-section" style="margin-top: 20rpx;">
-                  <text style="color: #333; font-weight: bold; font-size: 32rpx; display: block; margin-bottom: 10rpx;">视频讲解：</text>
+                <view v-if="question.videoUrl" class="question-video-section" style="margin-top: 80rpx;">
+                  <text style="color: #333; font-weight: bold; font-size: 32rpx; display: block; margin-bottom: 10rpx; font-size: 36rpx;">视频讲解：</text>
                   <video :src="question.videoUrl" controls style="width: 100%;"></video>
                 </view>
               </view>
@@ -306,10 +302,12 @@ const handleTouchEnd = () => {
 const goBack = () => {
   const pages = getCurrentPages();
   const currentPage = pages[pages.length - 1];
+  // 使用let而不是const声明options，避免重复声明
+  let options;
   // #ifdef H5
-  const options = currentPage.options || currentPage.$page?.options || {};
+  options = currentPage.options || currentPage.$page?.options || {};
   // #else
-  const options = currentPage.options || {};
+  options = currentPage.options || {};
   // #endif
 
   const { studentId, startTime, endTime, knowledgePointId } = options;
@@ -450,25 +448,15 @@ async function processImageUrls(imageUrls) {
 
 const contentHeaderRef = ref(null);
 const contentHeaderHeight = ref(60);
+// 修改swiperHeight计算
 const swiperHeight = computed(() => {
   // 120px为底部按钮区高度，可根据实际调整
-  return `calc(100vh - ${headerHeight.value} - ${contentHeaderHeight.value}px - 120px)`;
+  return `calc(100vh - ${headerHeight.value} - 120px)`;
 });
-function getContentHeaderHeight() {
-  nextTick(() => {
-    setTimeout(() => {
-      uni.createSelectorQuery().select('.content-header').boundingClientRect(rect => {
-        if (rect && rect.height) {
-          contentHeaderHeight.value = rect.height;
-        } else {
-          contentHeaderHeight.value = 60;
-        }
-      }).exec();
-    }, 200);
-  });
-}
+
 onMounted(() => {
-  getContentHeaderHeight();
+  // 移除对getContentHeaderHeight的调用
+  // getContentHeaderHeight();
 });
 
 onLoad(async (options) => {
@@ -611,23 +599,30 @@ onLoad(async (options) => {
   display: flex;
   align-items: center;
   height: 100%;
+  width: 80rpx; /* 稍微增加宽度 */
+  margin-left: 10rpx;
 }
 .center-section {
-  flex: 1;
   display: flex;
   justify-content: center;
   align-items: center;
+  height: 100%;
+  flex: 1; /* 占用剩余空间 */
 }
 .header-title {
   font-size: 36rpx;
   font-weight: bold;
   color: #333;
 }
+/* 右侧区域样式 */
 .right-section {
   display: flex;
   align-items: center;
   height: 100%;
-  width: 60rpx;
+  gap: 35rpx; /* 增加图标间距 */
+  justify-content: flex-end;
+  width: 140rpx; /* 稍微增加宽度，使布局更平衡 */
+  margin-right: 10rpx;
 }
 .back-button {
   width: 60rpx;
@@ -647,6 +642,9 @@ onLoad(async (options) => {
   flex-direction: column;
   /* 移除 padding-top: 60px; */
 }
+
+/* 不再需要的content-header相关样式，可以注释掉 */
+/*
 .content-header {
   position: static;
 }
@@ -672,12 +670,13 @@ onLoad(async (options) => {
   background: #e0e0e0;
   margin: 10rpx 0 0 0;
 }
+*/
 .question-counter {
   font-size: 28rpx;
   color: #555;
-  line-height: 1;
   display: flex;
   align-items: center;
+  justify-content: center;
 }
 .current-index {
   color: #0057b7;
@@ -686,9 +685,6 @@ onLoad(async (options) => {
 }
 .header-icon {
   cursor: pointer;
-  margin-left: 20rpx;
-  display: flex;
-  align-items: center;
 }
 /* datika 答题卡图标样式 */
 .datika-icon {
@@ -697,7 +693,6 @@ onLoad(async (options) => {
   display: inline-block;
   vertical-align: middle;
   cursor: pointer;
-  margin-right: 16px;
 }
 .questions-swiper, .swiper-item, .question-scroll {
   height: 100%;
@@ -953,7 +948,7 @@ onLoad(async (options) => {
 }
 
 .section-label {
-  font-size: 32rpx;
+  font-size: 36rpx;
   font-weight: bold;
   color: #333;
   display: block;

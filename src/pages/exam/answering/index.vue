@@ -1,40 +1,44 @@
 <template>
   <view class="exam-answering-container">
-    <!-- 自定义头部 (仅保留返回按钮) -->
+    <!-- 自定义头部 (包含返回按钮和右侧图标) -->
     <view class="header-bar" :style="{ height: headerHeight, paddingTop: statusBarHeight + 'px' }">
       <view class="left-section">
         <view class="back-button" @click="goBack">
           <uni-icons type="left" size="24" color="#333"></uni-icons>
         </view>
       </view>
-       <view class="right-section"></view> <!-- 右侧占位符以保持返回按钮居左 -->
+      <view class="center-section">
+        <text class="question-counter" style="padding-left: 70rpx;" v-if="!loading">
+          <text class="current-question-number">{{ examStore.currentQuestionIndex + 1 }}</text>
+          / {{ examStore.totalQuestions }}
+        </text>
+      </view>
+      <view class="right-section">
+        <uni-icons v-if="!loading" :type="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? 'star-filled' : 'star'" size="24" :color="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? '#ffb300' : '#333'" class="header-icon" @click="examStore.toggleFavorite(examStore.currentQuestion.id)"></uni-icons>
+        <image
+            v-if="!loading"
+            src="/static/images/datika.png"
+            class="header-icon datika-icon"
+            @click="examStore.toggleQuestionCard"
+            mode="widthFix"
+        />
+      </view> <!-- 右侧部分包含收藏和答题卡图标 -->
     </view>
     <view v-if="loading" class="loading-state">
       <uni-icons type="spinner-cycle" size="40" color="#007aff" class="loading-icon"></uni-icons>
       <text class="loading-text">正在加载试题...</text>
     </view>
     <view v-else class="question-content-wrapper" :style="{ marginTop: headerHeight }">
-        <!-- 将试卷名称和右侧元素放在这里，在返回按钮下方 -->
+        <!-- 将试卷名称放在这里，在返回按钮下方 -->
         <!-- 添加 ref 引用 -->
+        <!-- 
         <view class="content-header" ref="contentHeaderRef">
             <view class="content-header-row">
                 <text class="paper-title-in-content">{{ examStore.paperTitle }}</text>
-                <view class="content-header-icons">
-                    <text class="question-counter">
-                      <text class="current-question-number">{{ examStore.currentQuestionIndex + 1 }}</text>
-                      / {{ examStore.totalQuestions }}
-                    </text>
-                    <uni-icons :type="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? 'star-filled' : 'star'" size="24" :color="examStore.favoritedQuestionIds.has(examStore.currentQuestion.id) ? '#ffb300' : '#333'" class="header-icon" @click="examStore.toggleFavorite(examStore.currentQuestion.id)"></uni-icons>
-                    <image
-                        src="/static/images/datika.png"
-                        class="header-icon datika-icon"
-                        @click="examStore.toggleQuestionCard"
-                        mode="widthFix"
-                    />
-                </view>
             </view>
             <view class="content-header-divider"></view>
         </view>
+        -->
 
         <!-- Use transition component for non-mini-program platforms -->
         <!-- For mini-program, we'll use native animation -->
@@ -53,8 +57,8 @@
             <scroll-view class="question-scroll" scroll-y="true" style="height: 100%; width: 100%;">
               <view class="question-main">
                 <!-- 题目分值 -->
-                <view class="question-score" v-if="question.score">
-                    本题分值：{{ question.score }}分
+                <view class="question-score-info" v-if="question.score">
+                    <text class="score-label left">本题分值：{{ question.score }}分</text>
                 </view>
                 <!-- 题干 -->
                 <view class="question-stem-content">
@@ -235,24 +239,25 @@ const headerHeight = computed(() => {
 
 // content-header高度
 const contentHeaderRef = ref(null);
-const contentHeaderHeight = ref(60);
-const getContentHeaderHeight = () => {
-  nextTick(() => {
-    setTimeout(() => {
-      uni.createSelectorQuery().select('.content-header').boundingClientRect(rect => {
-        if (rect && rect.height) {
-          contentHeaderHeight.value = rect.height;
-        } else {
-          contentHeaderHeight.value = 60;
-        }
-      }).exec();
-    }, 200);
-  });
-};
+const contentHeaderHeight = ref(0); // 改为0，因为不再显示content-header
+// 不再需要获取content-header高度的函数
+// const getContentHeaderHeight = () => {
+//   nextTick(() => {
+//     setTimeout(() => {
+//       uni.createSelectorQuery().select('.content-header').boundingClientRect(rect => {
+//         if (rect && rect.height) {
+//           contentHeaderHeight.value = rect.height;
+//         } else {
+//           contentHeaderHeight.value = 60;
+//         }
+//       }).exec();
+//     }, 200);
+//   });
+// };
 
 const swiperHeight = computed(() => {
   // 120px为底部按钮区高度
-  return `calc(100vh - ${headerHeight.value} - ${contentHeaderHeight.value}px - 120px)`;
+  return `calc(100vh - ${headerHeight.value} - 120px)`;
 });
 
 // 用于控制过渡动画方向的变量 (仅用于非小程序平台)
@@ -626,8 +631,8 @@ onMounted(() => {
   // 启动倒计时
   examStore.startTimer();
 
-  // 初始获取 content-header 的高度
-  getContentHeaderHeight();
+  // 不再需要获取content-header的高度
+  // getContentHeaderHeight();
 
   // 初始化小程序动画实例
   initMPAnimation();
@@ -639,8 +644,15 @@ onUnmounted(() => {
 
 onLoad(async (options) => {
   examStore.currentQuestionIndex = 0; // 每次进入页面都重置为第一题
+  currentIndex.value = 0; // 同时也重置swiper的当前索引
   console.log('answering: Page onLoad', options);
   loading.value = true;
+  
+  // 重置状态，确保不会显示上一个试卷的数据
+  examStore.questions = [];
+  examStore.resetUploadedImages();
+  examStore.paperTitle = '';
+  
   if (options && options.sourceId) {
     const sourceId = options.sourceId;
     currentPushId.value = options.pushId || null; // 获取 pushId
@@ -678,8 +690,8 @@ watch(() => examStore.questions, (newValue) => {
     // When questions load, reset current question index to 0 to show the first question
     if (newValue && newValue.length > 0) {
         currentIndex.value = examStore.currentQuestionIndex;
-        // 在 questions 更新后重新计算 content-header 的高度
-        getContentHeaderHeight();
+        // 不再需要计算content-header的高度
+        // getContentHeaderHeight();
     }
 }, { immediate: true }); // Immediate: true will fire the watcher immediately on component creation
 
@@ -726,15 +738,29 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 .left-section {
     display: flex;
     align-items: center;
-     height: 100%;
+    height: 100%;
+    width: 80rpx; /* 稍微增加宽度 */
+    margin-left: 10rpx;
 }
 
-/* 右侧占位符样式 */
+.center-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  flex: 1; /* 占用剩余空间 */
+  // padding-left: 70rpx; /* 向右偏移 */
+}
+
+/* 右侧区域样式 */
 .right-section {
     display: flex;
     align-items: center;
-     height: 100%;
-     width: 60rpx;
+    height: 100%;
+    gap: 35rpx; /* 增加图标间距 */
+    justify-content: flex-end;
+    width: 140rpx; /* 稍微增加宽度，使布局更平衡 */
+    margin-right: 10rpx;
 }
 
 .back-button {
@@ -752,7 +778,8 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  margin-top: 0;
+  margin-top: 0; /* 将由:style="{ marginTop: headerHeight }"动态设置 */
+  padding-top: 10rpx; /* 增加一点内边距，使内容看起来更舒适 */
   padding-bottom: 0;
   position: relative;
   overflow: hidden;
@@ -768,7 +795,6 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 }
 
 .content-header-row {
-
   margin-top: 30rpx;
   display: flex;
   align-items: center;
@@ -788,24 +814,20 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
   white-space: nowrap;
 }
 
-.content-header-icons {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 20rpx;
-  padding-right: 30rpx;
-  flex-shrink: 0;
-}
+// 移除 .content-header-icons 样式类
 
 .question-counter {
     font-size: 28rpx;
     color: #555;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .current-question-number {
   color: #007aff;
   font-weight: bold;
-  font-size: 38rpx;
+  font-size: 32rpx;
 }
 
 .header-icon {
@@ -1340,14 +1362,46 @@ watch(() => examStore.paperTitle, (newValue, oldValue) => {
 }
 
 /* 新增题目分值样式 */
+.question-score-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+  padding: 0 0rpx;
+}
+
+.score-label.left {
+  text-align: left;
+  flex: 1;
+  color: #333;
+  font-size: 32rpx;
+  font-weight: bold;
+}
+
+.score-label.right {
+  text-align: right;
+  flex: 1;
+  color: #333;
+  font-size: 32rpx;
+  font-weight: bold;
+  margin-right: 40rpx;
+}
+
+.question-score-info text {
+  /* 确保每个文本元素内部内容不换行，如果需要 */
+  white-space: nowrap;
+}
+
+/* 移除旧的题目分值样式 */
+/*
 .question-score {
   font-size: 28rpx;
   color: #666;
   margin-bottom: 20rpx;
-  text-align: left; /* 改变为左对齐 */
-  //padding-left: 20rpx; /* 与内容区域左侧对齐 */
+  text-align: left;
   font-weight: bold;
 }
+*/
 
 /* datika 答题卡图标样式 */
 .datika-icon {
