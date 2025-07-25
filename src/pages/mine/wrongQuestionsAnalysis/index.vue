@@ -219,8 +219,9 @@
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { getWrongQuestionDetails, getWrongQuestionsByKnowledgePoint, getVideoPreSignedUrls } from '@/api/exam';
-import { parseMathText } from '@/stores/exam';
-import { getImageFromMinio } from '@/api/exam';
+import { parseMathText, parseMathTextWithBatchAPI } from '@/stores/exam';
+import { getImageFromMinio, getImagePreSignedUrls } from '@/api/exam';
+import { processImagesWithBatchAPI } from '@/utils/imageUtils';
 import MathJax from '@/components/MathJax.vue';
 import { useExamStore } from '@/stores/exam';
 
@@ -428,22 +429,26 @@ const previewImage = (url) => {
   });
 };
 
-// 处理图片URL为base64
+// 处理图片URL为base64（使用新的批量API）
 async function processImageUrls(imageUrls) {
   if (!imageUrls) return [];
   const urls = typeof imageUrls === 'string' ? imageUrls.split(',').map(u => u.trim()).filter(Boolean) : imageUrls;
-  const arr = [];
-  for (let i = 0; i < urls.length; i++) {
-    const path = urls[i];
-    if (!path) continue;
-    try {
-      const res = await getImageFromMinio(path.startsWith('http') ? new URL(path).pathname : path);
-      if (res.flag === '1' && res.result?.imageData) {
-        arr.push(`data:${res.result.contentType};base64,${res.result.imageData}`);
-      }
-    } catch (e) {}
-  }
-  return arr;
+  
+  if (urls.length === 0) return [];
+  
+  // 处理图片路径，确保格式正确
+  const normalizedPaths = urls.map(path => {
+    if (!path) return null;
+    return path.startsWith('http') ? new URL(path).pathname : path;
+  }).filter(Boolean);
+  
+  // 使用批量API获取预签名URL
+  const preSignedUrlMap = await processImagesWithBatchAPI(normalizedPaths);
+  
+  // 返回处理后的URL数组
+  return normalizedPaths
+    .map(path => preSignedUrlMap[path])
+    .filter(Boolean);
 }
 
 const contentHeaderRef = ref(null);
@@ -482,6 +487,29 @@ onLoad(async (options) => {
   if (res.flag === '1' && res.result) {
     const imageUrlMap = res.result.imageUrlMap || {};
     const details = res.result.wrongQuestionDetails || [];
+    
+    // 收集所有图片路径
+    const allImagePaths = new Set();
+    for (const imageId in imageUrlMap) {
+      if (imageUrlMap[imageId]) {
+        const path = imageUrlMap[imageId].startsWith('http') ? 
+          new URL(imageUrlMap[imageId]).pathname : 
+          imageUrlMap[imageId];
+        allImagePaths.add(path);
+      }
+    }
+    
+    // 批量获取图片预签名URL
+    let imagePreSignedUrlMap = {};
+    if (allImagePaths.size > 0) {
+      try {
+        imagePreSignedUrlMap = await processImagesWithBatchAPI([...allImagePaths]);
+        console.log('批量获取图片预签名URL成功，数量:', Object.keys(imagePreSignedUrlMap).length);
+      } catch (e) {
+        console.error('批量获取图片预签名URL失败', e);
+      }
+    }
+    
     // 1. 收集所有videoId
     const allVideoIds = [];
     for (const item of details) {
@@ -515,7 +543,7 @@ onLoad(async (options) => {
       if (type === 3) question = questionApplication;
       if (!question) continue;
       // 题干
-      const textSegments = await parseMathText(question.queStem || '', imageUrlMap);
+      const textSegments = await parseMathTextWithBatchAPI(question.queStem || '', imageUrlMap, imagePreSignedUrlMap);
       // 选项
       let options = [];
       if (type === 1) {
@@ -523,7 +551,7 @@ onLoad(async (options) => {
           if (question['option' + opt]) {
             options.push({
               label: opt,
-              segments: await parseMathText(question['option' + opt], imageUrlMap),
+              segments: await parseMathTextWithBatchAPI(question['option' + opt], imageUrlMap, imagePreSignedUrlMap),
               value: opt
             });
           }
@@ -535,7 +563,7 @@ onLoad(async (options) => {
         imageUrls = await processImageUrls(detailRecord.imageUrls);
       }
       // 解析
-      const analysisSegments = await parseMathText(detailRecord.analysis || '', imageUrlMap);
+      const analysisSegments = await parseMathTextWithBatchAPI(detailRecord.analysis || '', imageUrlMap, imagePreSignedUrlMap);
       // 视频处理
       const videoId = question.videoId;
       let videoUrl = null;

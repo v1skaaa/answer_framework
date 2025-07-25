@@ -106,22 +106,11 @@ const goBack = () => {
 };
 
 // 跳转到考试记录详情
-const goToRecordDetail = async (record) => {
-  try {
-    uni.showLoading({ title: '加载中...' });
-    await examStore.loadExamDetails(record.recordId);
-    uni.hideLoading();
-    uni.navigateTo({
-      url: `/pages/exam/analysis/index?recordId=${record.recordId}`
-    });
-  } catch (error) {
-    uni.hideLoading();
-    uni.showToast({
-      title: '加载考试详情失败',
-      icon: 'none'
-    });
-    console.error('Failed to load exam details:', error);
-  }
+const goToRecordDetail = (record) => {
+  // 直接导航到分析页面，让分析页面自己加载数据
+  uni.navigateTo({
+    url: `/pages/exam/analysis/index?recordId=${record.recordId}`
+  });
 };
 
 onLoad(async () => {

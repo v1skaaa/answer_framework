@@ -198,8 +198,9 @@
 import { ref, computed, onMounted, nextTick } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { getWrongQuestionRecommend } from '@/api/wrongquestion';
-import { getImageFromMinio } from '@/api/exam';
-import { parseMathText } from '@/stores/exam';
+import { getImageFromMinio, getImagePreSignedUrls } from '@/api/exam';
+import { parseMathText, parseMathTextWithBatchAPI } from '@/stores/exam';
+import { processImagesWithBatchAPI } from '@/utils/imageUtils';
 import MathJax from '@/components/MathJax.vue';
 
 const loading = ref(true);
@@ -357,21 +358,57 @@ const previewImage = (url) => {
 
 // 处理图片URL映射和数学公式解析
 const processQuestionContent = async (question, imageUrlMap) => {
-  // 处理题目标题
-  question.titleSegments = await parseMathText(question.title || '', imageUrlMap);
+  // 添加调试日志
+  console.log('Processing question fields:', {
+    hasTitle: !!question.title,
+    hasQueStem: !!question.queStem,
+    questionType: question.questionType,
+    hasOptions: question.optionA || question.optionB || question.optionC || question.optionD,
+  });
   
-  // 处理选项
-  const optionLabels = ['A', 'B', 'C', 'D'];
-  for (const label of optionLabels) {
-    const optionContent = question[`option${label}`];
-    if (optionContent) {
-      question[`option${label}Segments`] = await parseMathText(optionContent, imageUrlMap);
+  // 收集所有图片路径
+  const allImagePaths = new Set();
+  for (const imageId in imageUrlMap) {
+    if (imageUrlMap[imageId]) {
+      const path = imageUrlMap[imageId].startsWith('http') ? 
+        new URL(imageUrlMap[imageId]).pathname : 
+        imageUrlMap[imageId];
+      allImagePaths.add(path);
     }
   }
   
-  // 处理解析
+  // 批量获取图片预签名URL
+  let imagePreSignedUrlMap = {};
+  if (allImagePaths.size > 0) {
+    try {
+      imagePreSignedUrlMap = await processImagesWithBatchAPI([...allImagePaths]);
+      console.log('批量获取图片预签名URL成功，数量:', Object.keys(imagePreSignedUrlMap).length);
+    } catch (e) {
+      console.error('批量获取图片预签名URL失败', e);
+    }
+  }
+  
+  // 题干解析
+  if (question.title) {
+    question.titleSegments = await parseMathTextWithBatchAPI(question.title, imageUrlMap, imagePreSignedUrlMap);
+  } else if (question.queStem) {
+    question.titleSegments = await parseMathTextWithBatchAPI(question.queStem, imageUrlMap, imagePreSignedUrlMap);
+  } else {
+    question.titleSegments = [];
+  }
+  
+  // 选项解析 (选择题)
+  for (const opt of ['A', 'B', 'C', 'D']) {
+    if (question[`option${opt}`]) {
+      question[`option${opt}Segments`] = await parseMathTextWithBatchAPI(question[`option${opt}`], imageUrlMap, imagePreSignedUrlMap);
+    }
+  }
+  
+  // 解析处理
   if (question.analysis) {
-    question.analysisSegments = await parseMathText(question.analysis, imageUrlMap);
+    question.analysisSegments = await parseMathTextWithBatchAPI(question.analysis, imageUrlMap, imagePreSignedUrlMap);
+  } else {
+    question.analysisSegments = [];
   }
   
   return question;
@@ -391,6 +428,12 @@ const loadSimilarQuestions = async () => {
   try {
     loading.value = true;
     const res = await getWrongQuestionRecommend(qaId.value);
+    
+    // 添加调试日志
+    console.log('API Response:', res);
+    if (res.result && res.result.similarQuestions) {
+      console.log('First question:', res.result.similarQuestions[0]);
+    }
     
     if (res.flag === '1' && res.result) {
       const { similarQuestions: questions, imageUrlMap } = res.result;

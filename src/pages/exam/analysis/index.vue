@@ -120,12 +120,15 @@
                     <template v-else-if="question.originalType === 2 || question.originalType === 3">
                         <view class="student-answer">
                             <text class="answer-label">你的答案:</text>
-                            <template v-if="question.imageUrls">
+                            <template v-if="question.imageUrls && (Array.isArray(question.imageUrls) ? question.imageUrls.length > 0 : question.imageUrls)">
                                 <view class="image-preview-list">
                                     <view class="image-preview-item" v-for="(imageUrl, index) in (Array.isArray(question.imageUrls) ? question.imageUrls : [question.imageUrls])" :key="index">
                                         <image :src="imageUrl" mode="aspectFill" class="preview-image" @click="previewImage(imageUrl)"></image>
-                                     </view>
-                                 </view>
+                                    </view>
+                                </view>
+                            </template>
+                            <template v-else-if="question.hasUploadedImages && (!question.imageUrls || (Array.isArray(question.imageUrls) && question.imageUrls.length === 0))">
+                                <text class="upload-warning">图片加载失败，请重新打开</text>
                             </template>
                             <template v-else-if="question.stuAnswer">
                                 <text>{{ question.stuAnswer }}</text>
@@ -286,6 +289,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useExamStore } from '@/stores/exam';
+import { processImagesWithBatchAPI } from '@/utils/imageUtils';
 import MathJax from '@/components/MathJax.vue'; // Import the MathJax component
 
 // 获取考试 store
@@ -631,13 +635,13 @@ watch(() => examStore.questions, (newValue, oldValue) => {
          // 如果没有题目，也重新计算高度，虽然此时 content-header 可能只有标题
          // getContentHeaderHeight(); // 移除此行
     }
-}, { immediate: true }); // Immediate: true will fire the watcher immediately on component creation
+}); // 移除 immediate: true 标志，防止组件创建时立即触发
 
 watch(() => examStore.paperTitle, (newValue, oldValue) => {
     console.log('analysis: examStore.paperTitle changed from', oldValue, 'to', newValue);
      // 当试卷标题变化时，也重新计算 content-header 的高度
      // getContentHeaderHeight(); // 移除此行
-}, { immediate: true });
+}); // 移除 immediate: true 标志，防止组件创建时立即触发
 
 // Need to expose store state and actions to the template
 // The setup script already does this automatically with useExamStore()

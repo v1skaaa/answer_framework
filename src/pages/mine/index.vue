@@ -65,6 +65,7 @@
 import { ref, onMounted } from 'vue';
 import { useUserDetailStore } from '@/stores/userDetail';
 import { getWrongQuestionCount } from '@/api/exam';
+import { logout as logoutAPI } from '@/api/user';
 import '@/../font_4960231_adxpawzkqii/iconfont.css';
 
 // 保留原有的用户信息和统计数据模拟，根据需要进行调整
@@ -126,14 +127,70 @@ const showLogoutConfirm = () => {
   });
 };
 
-const logout = () => {
+const logout = async () => {
+  uni.showLoading({ title: '退出中...' });
+  try {
+    // 调用退出登录接口
+    const response = await logoutAPI();
+    uni.hideLoading();
+    
+    if (response && response.flag === '1') {
+      // 清除本地存储的用户信息
+      uni.removeStorageSync('accessToken');
+      uni.removeStorageSync('refreshToken');
+      uni.removeStorageSync('username');
+      uni.removeStorageSync('nickname');
+      uni.removeStorageSync('avatar');
+      uni.removeStorageSync('id');
+      
+      // 提示退出成功
+      uni.showToast({
+        title: '退出成功',
+        icon: 'success',
+        duration: 100,
+        complete: () => {
+          // 跳转到登录页
+          setTimeout(() => {
+            uni.reLaunch({
+              url: '/pages/login/index'
+            });
+          }, 100);
+        }
+      });
+    } else {
+      // 接口调用失败但仍然退出
+      console.warn('退出登录接口调用失败，仍然执行本地退出操作');
+      handleLocalLogout();
+    }
+  } catch (error) {
+    uni.hideLoading();
+    console.error('退出登录失败:', error);
+    // 如果接口调用失败，也执行本地退出逻辑
+    handleLocalLogout();
+  }
+};
+
+// 添加本地退出处理函数
+const handleLocalLogout = () => {
+  // 清除本地存储的用户信息
   uni.removeStorageSync('accessToken');
   uni.removeStorageSync('refreshToken');
   uni.removeStorageSync('username');
   uni.removeStorageSync('nickname');
   uni.removeStorageSync('avatar');
-  uni.reLaunch({
-    url: '/pages/login/index'
+  uni.removeStorageSync('id');
+  
+  uni.showToast({
+    title: '已退出登录',
+    icon: 'none',
+    duration: 1000,
+    complete: () => {
+      setTimeout(() => {
+        uni.reLaunch({
+          url: '/pages/login/index'
+        });
+      }, 1000);
+    } 
   });
 };
 

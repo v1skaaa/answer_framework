@@ -60,6 +60,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
 import { useExamStore } from '@/stores/exam';
+import { processImagesWithBatchAPI } from '@/utils/imageUtils';
 // uni-icons will be automatically imported via easycom
 
 // 获取考试 store

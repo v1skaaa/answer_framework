@@ -6,6 +6,8 @@ import { useUserStore } from '@/stores/user'
 import { getExamDetails } from '@/api/exam'
 import { getImageFromMinio } from '@/api/exam'
 import { getVideoPreSignedUrls } from '@/api/exam';
+import { getImagePreSignedUrls } from '@/api/exam';
+import { processImagesWithBatchAPI } from '@/utils/imageUtils';
 
 // 工具函数：去除图片路径中的域名和端口，只保留相对路径
 function normalizeImagePath(path) {
@@ -21,7 +23,89 @@ function normalizeImagePath(path) {
   return path;
 }
 
-// 解析数学公式文本的辅助函数
+// 新版：使用批量API解析数学公式文本的辅助函数
+export const parseMathTextWithBatchAPI = async (text, imageUrlMap = {}, preSignedUrlMap = null) => {
+  if (!text || typeof text !== 'string') {
+    return [];
+  }
+  
+  const segments = [];
+  let currentIndex = 0;
+  
+  // Regex to find either $$...$$, $...$, or [IMAGE_ID:...] globally
+  const combinedRegex = /(\$\$[\s\S]*?\$\$)|(\$[\s\S]*?\$)|(\[IMAGE_ID:([a-f0-9-]+)\])/g;
+  
+  let match;
+  const imageMatches = [];
+  
+  // 首先收集所有匹配项
+  while ((match = combinedRegex.exec(text)) !== null) {
+    const fullMatch = match[0];
+    const matchIndex = match.index;
+
+    // 添加文本段落
+    if (matchIndex > currentIndex) {
+      const textContent = text.substring(currentIndex, matchIndex);
+      if (textContent.trim()) {
+        segments.push({ type: 'text', content: textContent });
+      }
+    }
+    
+    // 处理匹配项
+    if (match[1]) {
+      // Display math $$...$$
+      segments.push({ type: 'formula', content: match[1].substring(2, match[1].length - 2).trim(), displayMode: true });
+    } else if (match[2]) {
+      // Inline math $...$
+      segments.push({ type: 'formula', content: match[2].substring(1, match[2].length - 1).trim(), displayMode: false });
+    } else if (match[3]) {
+      // Image ID [IMAGE_ID:...]
+      const imageId = match[4];
+      const imagePath = imageUrlMap[imageId];
+      if (imagePath) {
+        imageMatches.push({
+          index: segments.length,
+          imageId,
+          imagePath: normalizeImagePath(imagePath)
+        });
+        // 先添加一个占位符
+        segments.push({ type: 'image', url: null });
+      } else {
+        segments.push({ type: 'text', content: fullMatch });
+      }
+    }
+    
+    currentIndex = matchIndex + fullMatch.length;
+  }
+  
+  // 添加剩余文本
+  if (currentIndex < text.length) {
+    const textContent = text.substring(currentIndex);
+    if (textContent.trim()) {
+      segments.push({ type: 'text', content: textContent });
+    }
+  }
+  
+  // 如果没有找到任何模式且原始文本有内容，将其作为单个文本段落返回
+  if (segments.length === 0 && text.trim()) {
+    segments.push({ type: 'text', content: text });
+  }
+
+  // 如果有图片并且提供了预签名URL映射，直接使用
+  if (imageMatches.length > 0 && preSignedUrlMap) {
+    for (const { index, imagePath } of imageMatches) {
+      if (preSignedUrlMap[imagePath]) {
+        segments[index].url = preSignedUrlMap[imagePath];
+      } else {
+        segments[index] = { type: 'text', content: '[图片加载失败]' };
+      }
+    }
+  }
+  
+  return segments;
+};
+
+// 原始解析数学公式文本的辅助函数 (保留兼容)
 export const parseMathText = async (text, imageUrlMap = {}) => {
   if (!text || typeof text !== 'string') {
     return [];
@@ -280,12 +364,32 @@ export const useExamStore = defineStore('exam', () => {
       if (res.flag === '1' && res.result) {
         console.log('API call successful, res.result:', res.result);
         const imageUrlMap = res.result.imageUrlMap || {};
+        
+        // 收集所有图片路径
+        const allImagePaths = new Set();
+        for (const imageId in imageUrlMap) {
+          if (imageUrlMap[imageId]) {
+            allImagePaths.add(normalizeImagePath(imageUrlMap[imageId]));
+          }
+        }
+        
+        // 批量获取图片预签名URL
+        let imagePreSignedUrlMap = {};
+        if (allImagePaths.size > 0) {
+          try {
+            imagePreSignedUrlMap = await processImagesWithBatchAPI([...allImagePaths]);
+            console.log('批量获取图片预签名URL成功，数量:', Object.keys(imagePreSignedUrlMap).length);
+          } catch (e) {
+            console.error('批量获取图片预签名URL失败', e);
+          }
+        }
+        
         const processQuestions = async (list, type) => {
           if (!list) return [];
           const processedList = [];
           for (const item of list) {
             // 题干
-            let textSegments = item.queStem ? await parseMathText(item.queStem, imageUrlMap) : [];
+            let textSegments = item.queStem ? await parseMathTextWithBatchAPI(item.queStem, imageUrlMap, imagePreSignedUrlMap) : [];
             // Ensure textSegments is an array
             if (!Array.isArray(textSegments)) {
               textSegments = [];
@@ -301,10 +405,26 @@ export const useExamStore = defineStore('exam', () => {
             let options = undefined;
             if (type === 'choice') {
               const processedOptions = [];
-              if (item.optionA) processedOptions.push({ label: 'A', segments: await parseMathText(item.optionA, imageUrlMap), value: 'A' });
-              if (item.optionB) processedOptions.push({ label: 'B', segments: await parseMathText(item.optionB, imageUrlMap), value: 'B' });
-              if (item.optionC) processedOptions.push({ label: 'C', segments: await parseMathText(item.optionC, imageUrlMap), value: 'C' });
-              if (item.optionD) processedOptions.push({ label: 'D', segments: await parseMathText(item.optionD, imageUrlMap), value: 'D' });
+              if (item.optionA) processedOptions.push({ 
+                label: 'A', 
+                segments: await parseMathTextWithBatchAPI(item.optionA, imageUrlMap, imagePreSignedUrlMap), 
+                value: 'A' 
+              });
+              if (item.optionB) processedOptions.push({ 
+                label: 'B', 
+                segments: await parseMathTextWithBatchAPI(item.optionB, imageUrlMap, imagePreSignedUrlMap), 
+                value: 'B' 
+              });
+              if (item.optionC) processedOptions.push({ 
+                label: 'C', 
+                segments: await parseMathTextWithBatchAPI(item.optionC, imageUrlMap, imagePreSignedUrlMap), 
+                value: 'C' 
+              });
+              if (item.optionD) processedOptions.push({ 
+                label: 'D', 
+                segments: await parseMathTextWithBatchAPI(item.optionD, imageUrlMap, imagePreSignedUrlMap), 
+                value: 'D' 
+              });
               options = processedOptions.filter(opt => opt.segments.length > 0);
             }
             processedList.push({
@@ -913,6 +1033,46 @@ export const useExamStore = defineStore('exam', () => {
       console.log('getExamDetails API response:', res);
       if (res.flag === '1' && res.result) {
         const imageUrlMap = res.result.imageUrlMap || {};
+        
+        // 收集所有图片路径
+        const allImagePaths = new Set();
+        // 处理imageUrlMap中的图片路径
+        for (const imageId in imageUrlMap) {
+          if (imageUrlMap[imageId]) {
+            allImagePaths.add(normalizeImagePath(imageUrlMap[imageId]));
+          }
+        }
+        
+        // 收集学生提交的图片路径
+        ['choiceAnswers', 'blankAnswers', 'applicationAnswers'].forEach(typeKey => {
+          (res.result[typeKey] || []).forEach(item => {
+            if (item.detailRecord && item.detailRecord.imageUrls) {
+              const imageUrls = typeof item.detailRecord.imageUrls === 'string' ? 
+                item.detailRecord.imageUrls.split(',').map(url => url.trim()).filter(Boolean) : 
+                item.detailRecord.imageUrls;
+              
+              imageUrls.forEach(url => {
+                if (url) {
+                  allImagePaths.add(normalizeImagePath(url));
+                }
+              });
+            }
+          });
+        });
+        
+        console.log('收集到的所有图片路径数量:', allImagePaths.size);
+        
+        // 批量获取图片预签名URL
+        let imagePreSignedUrlMap = {};
+        if (allImagePaths.size > 0) {
+          try {
+            imagePreSignedUrlMap = await processImagesWithBatchAPI([...allImagePaths]);
+            console.log('批量获取图片预签名URL成功，数量:', Object.keys(imagePreSignedUrlMap).length);
+          } catch (e) {
+            console.error('批量获取图片预签名URL失败', e);
+          }
+        }
+        
         // 收集所有videoId
         const allVideoIds = [];
         ['choiceAnswers', 'blankAnswers', 'applicationAnswers'].forEach(typeKey => {
@@ -942,30 +1102,32 @@ export const useExamStore = defineStore('exam', () => {
           if (!questions) return [];
           return await Promise.all(questions.map(async (item) => {
             // 题干
-            const textSegments = item.question.queStem ? await parseMathText(item.question.queStem, imageUrlMap) : [];
+            const textSegments = item.question.queStem ? 
+              await parseMathTextWithBatchAPI(item.question.queStem, imageUrlMap, imagePreSignedUrlMap) : 
+              [];
             // 选项（仅选择题）
             let options = undefined;
             if (typeValue === 1) {
               options = [
-                { label: 'A', segments: item.question.optionA ? await parseMathText(item.question.optionA, imageUrlMap) : [], value: 'A' },
-                { label: 'B', segments: item.question.optionB ? await parseMathText(item.question.optionB, imageUrlMap) : [], value: 'B' },
-                { label: 'C', segments: item.question.optionC ? await parseMathText(item.question.optionC, imageUrlMap) : [], value: 'C' },
-                { label: 'D', segments: item.question.optionD ? await parseMathText(item.question.optionD, imageUrlMap) : [], value: 'D' },
+                { label: 'A', segments: item.question.optionA ? await parseMathTextWithBatchAPI(item.question.optionA, imageUrlMap, imagePreSignedUrlMap) : [], value: 'A' },
+                { label: 'B', segments: item.question.optionB ? await parseMathTextWithBatchAPI(item.question.optionB, imageUrlMap, imagePreSignedUrlMap) : [], value: 'B' },
+                { label: 'C', segments: item.question.optionC ? await parseMathTextWithBatchAPI(item.question.optionC, imageUrlMap, imagePreSignedUrlMap) : [], value: 'C' },
+                { label: 'D', segments: item.question.optionD ? await parseMathTextWithBatchAPI(item.question.optionD, imageUrlMap, imagePreSignedUrlMap) : [], value: 'D' },
               ].filter(opt => opt.segments.length > 0);
             }
             // 正确答案（填空/解答题）
             let correctAnswerSegments = null;
             if (typeValue === 2 && item.question.answer) {
-              correctAnswerSegments = await parseMathText(item.question.answer, imageUrlMap);
+              correctAnswerSegments = await parseMathTextWithBatchAPI(item.question.answer, imageUrlMap, imagePreSignedUrlMap);
             } else if (typeValue === 3 && item.question.solution) {
-              correctAnswerSegments = await parseMathText(item.question.solution, imageUrlMap);
+              correctAnswerSegments = await parseMathTextWithBatchAPI(item.question.solution, imageUrlMap, imagePreSignedUrlMap);
             }
             // 解析
             const rawAnalysis = item.detailRecord && item.detailRecord.analysis ? item.detailRecord.analysis : (item.question.analysis || '');
-            const analysisSegments = await parseMathText(rawAnalysis, imageUrlMap);
+            const analysisSegments = await parseMathTextWithBatchAPI(rawAnalysis, imageUrlMap, imagePreSignedUrlMap);
             // 解答（solution，仅解答题）
             const rawSolution = item.question.solution || '';
-            const solutionSegments = await parseMathText(rawSolution, imageUrlMap);
+            const solutionSegments = await parseMathTextWithBatchAPI(rawSolution, imageUrlMap, imagePreSignedUrlMap);
             // 题目状态
             let status = 'unanswered';
             let studentQuestionScore = 0;
@@ -979,11 +1141,32 @@ export const useExamStore = defineStore('exam', () => {
                 } else status = 'unanswered';
               }
             }
+            
             // 处理学生上传的图片
             let processedImageUrls = [];
             if (item.detailRecord && item.detailRecord.imageUrls) {
-              processedImageUrls = await processImageUrls(item.detailRecord.imageUrls);
+              // 分割图片URL字符串
+              const imageUrls = typeof item.detailRecord.imageUrls === 'string' ? 
+                item.detailRecord.imageUrls.split(',').map(url => url.trim()).filter(Boolean) : 
+                item.detailRecord.imageUrls;
+              
+              // 检查每个URL是否在预签名URL映射中
+              processedImageUrls = imageUrls.map(url => {
+                const normalizedPath = normalizeImagePath(url);
+                const result = imagePreSignedUrlMap[normalizedPath] || null;
+                if (!result) {
+                  console.warn(`未能找到图片URL的预签名链接: ${normalizedPath}`);
+                }
+                return result;
+              }).filter(Boolean);
+              
+              console.log(`处理题目 ${item.question.queSort} 的学生上传图片:`, {
+                原始图片URLs: imageUrls,
+                处理后的图片URLs: processedImageUrls,
+                图片数量: processedImageUrls.length
+              });
             }
+            
             // 视频处理
             const videoId = item.question.videoId;
             let videoUrl = null;
@@ -1009,7 +1192,8 @@ export const useExamStore = defineStore('exam', () => {
               studentScore: item.detailRecord && item.detailRecord.value !== null ? item.detailRecord.value : 0,
               questionScore: item.question.score || 0,
               imageData: item.detailRecord && item.detailRecord.imageData && item.detailRecord.imageData.length > 0 ? item.detailRecord.imageData : [],
-              imageUrls: processedImageUrls, // 使用处理后的图片URL
+              imageUrls: processedImageUrls, // 确保是处理后的图片URL数组
+              hasUploadedImages: processedImageUrls && processedImageUrls.length > 0, // 添加是否有上传图片的标志
               detailRecordId: item.detailRecord ? item.detailRecord.detId : null,
               teacherComment: item.detailRecord ? item.detailRecord.teacherComment : null,
               videoId,

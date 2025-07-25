@@ -91,10 +91,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-import { getQuestionList } from '@/api/exam';
+import { getQuestionList, getImagePreSignedUrls } from '@/api/exam';
 import MathJax from '@/components/MathJax.vue';
-import { parseMathText } from '@/stores/exam';
-import { processImageUrl } from '@/utils/imageUtils';
+import { parseMathTextWithBatchAPI } from '@/stores/exam';
+import { processImagesWithBatchAPI } from '@/utils/imageUtils';
 
 // 获取胶囊按钮位置信息和状态栏高度 (从answering页面复制)
 const menuButtonHeight = ref(0);
@@ -196,15 +196,38 @@ const fetchPaperDetail = async (sourceId) => {
     const res = await getQuestionList(sourceId);
     if (res.flag === '1' && res.result) {
       const imageUrlMap = res.result.imageUrlMap || {};
+      
+      // 收集所有图片路径
+      const allImagePaths = new Set();
+      for (const imageId in imageUrlMap) {
+        if (imageUrlMap[imageId]) {
+          // 处理图片路径，确保格式正确
+          const path = imageUrlMap[imageId].startsWith('http') ? 
+            new URL(imageUrlMap[imageId]).pathname : 
+            imageUrlMap[imageId];
+          allImagePaths.add(path);
+        }
+      }
+      
+      // 批量获取图片预签名URL
+      let imagePreSignedUrlMap = {};
+      if (allImagePaths.size > 0) {
+        try {
+          imagePreSignedUrlMap = await processImagesWithBatchAPI([...allImagePaths]);
+          console.log('批量获取图片预签名URL成功，数量:', Object.keys(imagePreSignedUrlMap).length);
+        } catch (e) {
+          console.error('批量获取图片预签名URL失败', e);
+        }
+      }
 
       // Process choice questions
       const processedChoiceQuestions = await Promise.all(res.result.choiceQuestions.map(async q => {
-        const stemSegments = await parseMathText(q.queStem, imageUrlMap);
+        const stemSegments = await parseMathTextWithBatchAPI(q.queStem, imageUrlMap, imagePreSignedUrlMap);
         const processedOptions = await Promise.all([
-          { label: 'A', segments: await parseMathText(q.optionA, imageUrlMap) },
-          { label: 'B', segments: await parseMathText(q.optionB, imageUrlMap) },
-          { label: 'C', segments: await parseMathText(q.optionC, imageUrlMap) },
-          { label: 'D', segments: await parseMathText(q.optionD, imageUrlMap) },
+          { label: 'A', segments: await parseMathTextWithBatchAPI(q.optionA, imageUrlMap, imagePreSignedUrlMap) },
+          { label: 'B', segments: await parseMathTextWithBatchAPI(q.optionB, imageUrlMap, imagePreSignedUrlMap) },
+          { label: 'C', segments: await parseMathTextWithBatchAPI(q.optionC, imageUrlMap, imagePreSignedUrlMap) },
+          { label: 'D', segments: await parseMathTextWithBatchAPI(q.optionD, imageUrlMap, imagePreSignedUrlMap) },
         ].filter(opt => opt.segments.length > 0)); // Filter out empty options
 
         return {
@@ -216,7 +239,7 @@ const fetchPaperDetail = async (sourceId) => {
 
       // Process blank questions
       const processedBlankQuestions = await Promise.all(res.result.blankQuestions.map(async q => {
-        const stemSegments = await parseMathText(q.queStem, imageUrlMap);
+        const stemSegments = await parseMathTextWithBatchAPI(q.queStem, imageUrlMap, imagePreSignedUrlMap);
         return {
           ...q,
           stemSegments
@@ -225,7 +248,7 @@ const fetchPaperDetail = async (sourceId) => {
 
       // Process application questions
       const processedApplicationQuestions = await Promise.all(res.result.applicationQuestions.map(async q => {
-        const stemSegments = await parseMathText(q.queStem, imageUrlMap);
+        const stemSegments = await parseMathTextWithBatchAPI(q.queStem, imageUrlMap, imagePreSignedUrlMap);
         return {
           ...q,
           stemSegments

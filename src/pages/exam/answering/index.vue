@@ -183,7 +183,8 @@
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue';
 // uni-icons will be automatically imported via easycom
 import { onLoad } from '@dcloudio/uni-app';
-import { getQuestionList } from '@/api/exam'; // Import the new API function
+import { getQuestionList, getImagePreSignedUrls } from '@/api/exam'; // Import the API functions
+import { processImagesWithBatchAPI } from '@/utils/imageUtils';
 import MathJax from '@/components/MathJax.vue'; // Import the MathJax component
 import { useExamStore } from '@/stores/exam';
 

@@ -81,6 +81,15 @@ export const getVideoPreSignedUrls = (videoIds) => {
   });
 };
 
+// 批量获取图片预签名URL
+export const getImagePreSignedUrls = (imagePaths) => {
+  return apiService({
+    url: '/api/tenant/exam/minio/image/pre-signed-urls',
+    method: 'post',
+    data: { imagePaths }
+  });
+};
+
 // 获取指定时间范围内的错题数量统计
 export const getWrongQuestionCount = (studentId, startTime, endTime) => {
   return apiService({
