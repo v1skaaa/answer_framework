@@ -101,6 +101,8 @@ const navToWrongQuestions = () => {
   const now = new Date();
   now.setMinutes(0);
   now.setSeconds(0);
+  now.setMilliseconds(0);
+  now.setHours(now.getHours() + 1); // 结束时间+1小时
   const endTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:00:00`;
 
   // 获取5天前的时间作为开始时间

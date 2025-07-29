@@ -356,38 +356,23 @@ const previewImage = (url) => {
   });
 };
 
-// 处理图片URL映射和数学公式解析
-const processQuestionContent = async (question, imageUrlMap) => {
-  // 添加调试日志
-  console.log('Processing question fields:', {
-    hasTitle: !!question.title,
-    hasQueStem: !!question.queStem,
-    questionType: question.questionType,
-    hasOptions: question.optionA || question.optionB || question.optionC || question.optionD,
-  });
-  
-  // 收集所有图片路径
-  const allImagePaths = new Set();
-  for (const imageId in imageUrlMap) {
-    if (imageUrlMap[imageId]) {
-      const path = imageUrlMap[imageId].startsWith('http') ? 
-        new URL(imageUrlMap[imageId]).pathname : 
-        imageUrlMap[imageId];
+// 工具函数：收集文本中的图片ID对应的图片路径
+function extractImageIds(text, imageUrlMap, allImagePaths) {
+  if (!text) return;
+  const regex = /\[IMAGE_ID:([a-f0-9-]+)\]/g;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    const imageId = match[1];
+    const imagePath = imageUrlMap[imageId];
+    if (imagePath) {
+      const path = imagePath.startsWith('http') ? new URL(imagePath).pathname : imagePath;
       allImagePaths.add(path);
     }
   }
-  
-  // 批量获取图片预签名URL
-  let imagePreSignedUrlMap = {};
-  if (allImagePaths.size > 0) {
-    try {
-      imagePreSignedUrlMap = await processImagesWithBatchAPI([...allImagePaths]);
-      console.log('批量获取图片预签名URL成功，数量:', Object.keys(imagePreSignedUrlMap).length);
-    } catch (e) {
-      console.error('批量获取图片预签名URL失败', e);
-    }
-  }
-  
+}
+
+// 处理图片URL映射和数学公式解析
+const processQuestionContent = async (question, imageUrlMap, imagePreSignedUrlMap) => {
   // 题干解析
   if (question.title) {
     question.titleSegments = await parseMathTextWithBatchAPI(question.title, imageUrlMap, imagePreSignedUrlMap);
@@ -396,21 +381,18 @@ const processQuestionContent = async (question, imageUrlMap) => {
   } else {
     question.titleSegments = [];
   }
-  
   // 选项解析 (选择题)
   for (const opt of ['A', 'B', 'C', 'D']) {
     if (question[`option${opt}`]) {
       question[`option${opt}Segments`] = await parseMathTextWithBatchAPI(question[`option${opt}`], imageUrlMap, imagePreSignedUrlMap);
     }
   }
-  
   // 解析处理
   if (question.analysis) {
     question.analysisSegments = await parseMathTextWithBatchAPI(question.analysis, imageUrlMap, imagePreSignedUrlMap);
   } else {
     question.analysisSegments = [];
   }
-  
   return question;
 };
 
@@ -438,10 +420,40 @@ const loadSimilarQuestions = async () => {
     if (res.flag === '1' && res.result) {
       const { similarQuestions: questions, imageUrlMap } = res.result;
       
-      // 处理每个题目的内容
+      // 1. 收集所有图片路径
+      const allImagePaths = new Set();
+      for (const question of questions || []) {
+        // 题干
+        if (question.title) {
+          extractImageIds(question.title, imageUrlMap, allImagePaths);
+        } else if (question.queStem) {
+          extractImageIds(question.queStem, imageUrlMap, allImagePaths);
+        }
+        // 选项
+        for (const opt of ['A', 'B', 'C', 'D']) {
+          if (question[`option${opt}`]) {
+            extractImageIds(question[`option${opt}`], imageUrlMap, allImagePaths);
+          }
+        }
+        // 解析
+        if (question.analysis) {
+          extractImageIds(question.analysis, imageUrlMap, allImagePaths);
+        }
+      }
+      // 2. 批量获取图片预签名URL
+      let imagePreSignedUrlMap = {};
+      if (allImagePaths.size > 0) {
+        try {
+          imagePreSignedUrlMap = await processImagesWithBatchAPI([...allImagePaths]);
+          console.log('批量获取图片预签名URL成功，数量:', Object.keys(imagePreSignedUrlMap).length);
+        } catch (e) {
+          console.error('批量获取图片预签名URL失败', e);
+        }
+      }
+      // 3. 处理每个题目的内容
       const processedQuestions = [];
       for (const question of questions || []) {
-        const processedQuestion = await processQuestionContent(question, imageUrlMap || {});
+        const processedQuestion = await processQuestionContent(question, imageUrlMap, imagePreSignedUrlMap);
         
         // 解析知识点
         if (processedQuestion.knowledgePointIds) {
