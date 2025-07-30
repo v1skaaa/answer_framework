@@ -58,6 +58,13 @@
 			}
 		},
 		{
+			"path": "pages/mine/changePassword/index",
+			"style": {
+				"navigationBarTitleText": "修改密码",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/exam/intro/index",
 			"style": {
 				"navigationStyle": "custom"

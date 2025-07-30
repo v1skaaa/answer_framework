@@ -3,7 +3,7 @@
     <view class="page-title" style="opacity: 0;">请选择</view>
     <view class="test-list">
       <view 
-        v-for="item in testStore.sortedPaperTypes" 
+        v-for="item in testStore.filteredPaperTypes" 
         :key="item.typeId"
         class="test-item" 
         @click="goToPage(item)"

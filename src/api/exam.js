@@ -161,4 +161,13 @@ export const getWrongQuestionsByKnowledgePoint = (studentId, knowledgePointId, s
   });
 };
 
+// 修改密码接口
+export const changePassword = (studentId, oldPassword, newPassword) => {
+  return apiService({
+    url: '/api/tenant/exam/profile/changePassword',
+    method: 'post',
+    data: { studentId, oldPassword, newPassword }
+  });
+};
+
 // You can add other exam related API functions here later 

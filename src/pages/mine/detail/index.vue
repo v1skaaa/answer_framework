@@ -64,6 +64,13 @@
             <text class="label">性别</text>
             <text class="value">{{ genderText }}</text>
           </view>
+          <view class="divider"></view>
+          <view class="info-item" @click="goToChangePassword" style="cursor:pointer;">
+            <text class="label">修改密码</text>
+            <text class="value" style="color:#aaa;">
+              <span style="font-size:36rpx; margin-left: 8rpx;">&gt;</span>
+            </text>
+          </view>
         </view>
       </view>
     </view>
@@ -130,6 +137,13 @@ const goBack = () => {
         icon: 'none'
       });
     }
+  });
+};
+
+// 跳转到修改密码页面
+const goToChangePassword = () => {
+  uni.navigateTo({
+    url: '/pages/mine/changePassword/index'
   });
 };
 

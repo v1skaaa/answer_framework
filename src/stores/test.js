@@ -16,6 +16,13 @@ export const useTestStore = defineStore('test', {
       return [...state.paperTypes].sort((a, b) => a.sortOrder - b.sortOrder);
     },
     
+    // 获取过滤后的试卷类型列表（隐藏教师组卷）
+    filteredPaperTypes: (state) => {
+      return [...state.paperTypes]
+        .filter(type => type.typeName !== '教师组卷')
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+    },
+    
     // 根据 typeId 获取试卷类型
     getTypeById: (state) => (typeId) => {
       return state.paperTypes.find(type => type.typeId === typeId);

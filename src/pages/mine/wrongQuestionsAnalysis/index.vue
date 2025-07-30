@@ -430,7 +430,7 @@ const previewImage = (url) => {
 };
 
 // 处理图片URL为base64（使用新的批量API）
-async function processImageUrls(imageUrls) {
+async function processImageUrls(imageUrls, imagePreSignedUrlMap = {}) {
   if (!imageUrls) return [];
   const urls = typeof imageUrls === 'string' ? imageUrls.split(',').map(u => u.trim()).filter(Boolean) : imageUrls;
   
@@ -442,12 +442,9 @@ async function processImageUrls(imageUrls) {
     return path.startsWith('http') ? new URL(path).pathname : path;
   }).filter(Boolean);
   
-  // 使用批量API获取预签名URL
-  const preSignedUrlMap = await processImagesWithBatchAPI(normalizedPaths);
-  
-  // 返回处理后的URL数组
+  // 直接使用传入的预签名URL映射，而不是重新调用批量API
   return normalizedPaths
-    .map(path => preSignedUrlMap[path])
+    .map(path => imagePreSignedUrlMap[path])
     .filter(Boolean);
 }
 
@@ -488,8 +485,10 @@ onLoad(async (options) => {
     const imageUrlMap = res.result.imageUrlMap || {};
     const details = res.result.wrongQuestionDetails || [];
     
-    // 收集所有图片路径
+    // 1. 收集所有图片路径（包括学生答案图片）
     const allImagePaths = new Set();
+    
+    // 收集imageUrlMap中的图片路径
     for (const imageId in imageUrlMap) {
       if (imageUrlMap[imageId]) {
         const path = imageUrlMap[imageId].startsWith('http') ? 
@@ -499,7 +498,24 @@ onLoad(async (options) => {
       }
     }
     
-    // 批量获取图片预签名URL
+    // 收集学生答案图片路径
+    for (const item of details) {
+      const { detailRecord } = item;
+      if (detailRecord.imageUrls) {
+        const urls = typeof detailRecord.imageUrls === 'string' ? 
+          detailRecord.imageUrls.split(',').map(u => u.trim()).filter(Boolean) : 
+          detailRecord.imageUrls;
+        
+        urls.forEach(path => {
+          if (path) {
+            const normalizedPath = path.startsWith('http') ? new URL(path).pathname : path;
+            allImagePaths.add(normalizedPath);
+          }
+        });
+      }
+    }
+    
+    // 2. 批量获取图片预签名URL
     let imagePreSignedUrlMap = {};
     if (allImagePaths.size > 0) {
       try {
@@ -510,7 +526,7 @@ onLoad(async (options) => {
       }
     }
     
-    // 1. 收集所有videoId
+    // 3. 收集所有videoId
     const allVideoIds = [];
     for (const item of details) {
       const { detailRecord, questionChoice, questionBlank, questionApplication } = item;
@@ -523,7 +539,7 @@ onLoad(async (options) => {
       if (question.videoId) allVideoIds.push(question.videoId);
     }
     const uniqueVideoIds = [...new Set(allVideoIds)];
-    // 2. 批量请求视频URL
+    // 4. 批量请求视频URL
     let videoUrlMap = {};
     if (uniqueVideoIds.length > 0) {
       const videoRes = await getVideoPreSignedUrls(uniqueVideoIds);
@@ -531,7 +547,7 @@ onLoad(async (options) => {
         videoUrlMap = videoRes.result;
       }
     }
-    // 分类
+    // 5. 分类处理题目
     const choice = [], blank = [], application = [];
     let idx = 1;
     for (const item of details) {
@@ -557,10 +573,10 @@ onLoad(async (options) => {
           }
         }
       }
-      // 学生图片答案
+      // 学生图片答案 - 使用统一的imagePreSignedUrlMap
       let imageUrls = [];
       if (detailRecord.imageUrls) {
-        imageUrls = await processImageUrls(detailRecord.imageUrls);
+        imageUrls = await processImageUrls(detailRecord.imageUrls, imagePreSignedUrlMap);
       }
       // 解析
       const analysisSegments = await parseMathTextWithBatchAPI(detailRecord.analysis || '', imageUrlMap, imagePreSignedUrlMap);
